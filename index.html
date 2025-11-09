@@ -1,526 +1,84 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Card Feel – Sprites (FLIP flight + 3D flip + OpenZone + Reveal Select + Condense)</title>
-<style>
-  :root{
-    --cardW: 50px; --cardH: 80px;
-    --bg:#0b1220; --panel:#0f172a; --line:#263247; --text:#e9f0ff;
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Card Feel – P2P (Host Broadcast State)</title>
 
-    /* layers */
-    --z-overlay: 9500;
-    --z-controls: 9000;
-    --z-fx: 9600;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 system-ui}
-  .wrap{max-width:680px;margin:24px auto;padding:12px;display:flex;flex-direction:column;gap:16px}
-  .zone{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:12px}
-  .title{font-weight:800;margin-bottom:8px;opacity:.8}
+  <!-- CSS -->
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:,">
 
-  .hand,.stage,.pile,.openZone{
-    min-height: calc(var(--cardH) + 12px);
-    display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; overflow:visible
-  }
+  <!-- Preload sprite quan trọng (mặt sau lá) để tránh chớp hình khi lật -->
+  <link rel="preload" as="image" href="assets/cards/back.png" />
 
-  .hand{
-    perspective:800px;
-    justify-content:center;
-    align-items:flex-end;
-    display:flex; gap:10px; flex-wrap:wrap; overflow:visible;
-  }
-  .hand .card{transform: translateY(0) rotateZ(var(--rz, 0deg));}
-  .hand .card:nth-child(1){--rz:-3deg}
-  .hand .card:nth-child(3){--rz: 3deg}
-
-  .card{
-    width:var(--cardW); height:var(--cardH);
-    border-radius:5px; position:relative; cursor:pointer; user-select:none;
-    transform-style:preserve-3d; transition: transform .15s ease, box-shadow .15s ease;
-    box-shadow:0 14px 14px rgba(0,0,0,.90);
-    will-change: transform;
-  }
-  .card:hover{ transform: translateY(-8px) rotateZ(var(--rz,0)) scale(1.03) }
-  .card.selected{
-    outline:2px solid rgba(255,255,255,.45);
-    box-shadow:0 12px 20px rgba(0,0,0,.5);
-    transform: translateY(-8px) rotateZ(-10deg) scale(1.03);
-  }
-
-  .face{
-    position:absolute; inset:0; backface-visibility:hidden; border-radius:5px;
-    background-size: cover; background-position:center; background-repeat:no-repeat;
-  }
-  .front{ transform: rotateY(0deg) }
-  .back { transform: rotateY(180deg) }
-
-  .controls{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; position:relative; z-index:var(--z-controls)}
-  button{
-    appearance:none; border:1px solid var(--line); background:#1b2540; color:#e9f0ff;
-    padding:10px 12px; border-radius:10px; font-weight:800; cursor:pointer;
-  }
-
-  @keyframes settle {
-    0%{ transform: translate(0,0) scale(1) }
-    35%{ transform: translate(0,2px) scale(1.03) }
-    100%{ transform: translate(0,0) scale(1) }
-  }
-
-  /* ===== Overlay full-screen (không overlayBox) ===== */
-  #overlay{
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.5);
-    display: none; /* .show => flex */
-    z-index: var(--z-overlay);
-    color: #e9f0ff;
-  }
-  #overlay.show{ display:flex }
-
-  .overlayContent{
-    display:flex; flex-direction:column; align-items:center;
-    justify-content:flex-start; width:100%; height:100%;
-    padding:16px; gap:12px;
-  }
-  .overlayHeader{ font-weight:800; letter-spacing:.2px; opacity:.95; }
-  .overlaySub{ color:#b9c4df; font-size:13px; margin-top:-4px }
-  .overlayGrid{
-    flex:1; width:100%;
-    display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-content:flex-start;
-    padding:6px 8px; overflow:auto;
-  }
-  .overlayGrid .card{ width: var(--cardW); height: var(--cardH); }
-  .overlayBar{
-    width:100%;
-    display:flex; gap:10px; justify-content:center; padding:10px 0 4px;
-  }
-  .btnPrimary{ background: linear-gradient(180deg,#22c55e,#16a34a); border-color:#169347; color:white; }
-  .btnGhost{ background:#0f1a33; border-color:#2a3a58 }
-
-  /* ===== FX: Confetti + Sad ===== */
-  #fxLayer{
-    position:fixed; inset:0; pointer-events:none; z-index: var(--z-fx);
-  }
-  .confetti-piece{
-    position:absolute; width:8px; height:14px; opacity:.95; border-radius:2px;
-    animation: confettiFall linear forwards;
-  }
-  @keyframes confettiFall{
-    0%{ transform: translateY(-10vh) rotate(0deg); opacity:1 }
-    100%{ transform: translateY(110vh) rotate(720deg); opacity:0.9 }
-  }
-  .sad-drop{
-    position:absolute; width:4px; height:14px; background:#9fb0cc; border-radius:2px;
-    opacity:.9; animation: sadFall 1.2s linear forwards;
-  }
-  @keyframes sadFall{
-    0%{ transform: translateY(-10vh) translateX(0); opacity:.9 }
-    100%{ transform: translateY(100vh) translateX(-20px); opacity:0.2 }
-  }
-  .sad-emoji{
-    position:absolute; left:50%; top:40%; transform:translate(-50%,-50%);
-    font-size:48px; filter: drop-shadow(0 6px 16px rgba(0,0,0,.5));
-    animation: sadShake .9s ease-in-out 2;
-  }
-  @keyframes sadShake{
-    0%{ transform:translate(-50%,-50%) rotate(0) }
-    25%{ transform:translate(calc(-50% - 6px),-50%) rotate(-6deg) }
-    50%{ transform:translate(-50%,-50%) rotate(0) }
-    75%{ transform:translate(calc(-50% + 6px),-50%) rotate(6deg) }
-    100%{ transform:translate(-50%,-50%) rotate(0) }
-  }
-</style>
+  <!-- Progressive enhancement -->
+  <meta name="theme-color" content="#0b1220" />
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
 </head>
 <body>
-<div id="fxLayer"></div>
 
-<div class="wrap">
-  <div class="zone">
-    <div class="title">Khu mở chung (OpenZone)</div>
-    <div class="openZone" id="openZone"></div>
-  </div>
-
-  <div class="zone">
-    <div class="title">Tay bài (Hand)</div>
-    <div class="hand" id="hand"></div>
-  </div>
-
-  <div class="zone">
-    <div class="title">Trước mặt (Stage)</div>
-    <div class="stage" id="stage"></div>
-  </div>
-
-  <div class="zone">
-    <div class="title">Bài mở đối phương (Pile)</div>
-    <div class="pile" id="pile"></div>
-  </div>
-
-  <div class="zone controls">
-    <button id="btnPlay">Đánh (hand → stage)</button>
-    <button id="btnEnd">Kết thúc lượt (stage → pile)</button>
-    <button id="btnReveal">Tiết lộ / Reveal</button>
-    <button id="btnNew">Ván mới</button>
-  </div>
-</div>
-
-<!-- Overlay chọn từ remainingDeck -->
-<div id="overlay" aria-hidden="true">
-  <div class="overlayContent">
-    <div class="overlayHeader">Chọn hung thủ</div>
-    <div class="overlaySub">Chọn 1 lá từ những lá <b>chưa được chia</b></div>
-    <div id="overlayGrid" class="overlayGrid"></div>
-    <div class="overlayBar">
-      <button id="btnCancel" class="btnGhost">Hủy</button>
-      <button id="btnConfirm" class="btnPrimary">Lựa chọn</button>
+  <noscript>
+    <div style="padding:12px; background:#260000; color:#fff; font-weight:700;">
+      Trò chơi cần bật JavaScript để hoạt động.
     </div>
-  </div>
-</div>
+  </noscript>
 
-<script>
-  // ===== Shortcuts & constants =====
-  const $  = (sel, root=document) => root.querySelector(sel);
-  const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
-  const EASE_FLIGHT = 'cubic-bezier(.43,.28,0,1.19)';
-  const ASSET_DIR = 'assets/cards';
-  const BACK_FILE = 'hidden.png';
+  <!-- ===== Lobby ===== -->
+  <section id="lobby" class="lobby">
+    <div class="lobbyCard">
+      <h1>Card Feel – Kết nối P2P</h1>
+      <p id="lobbyStatus" class="muted">Đang khởi tạo…</p>
+      <div class="lobbyBtns">
+        <button id="btnCreate" class="primary">Tạo phòng</button>
+        <button id="btnJoin" class="secondary">Vào phòng</button>
+      </div>
+<p class="muted small">PeerServer: <code>cardfeel-sio-relay.onrender.com</code>, path <code>/pg</code>.</p>
+    </div>
+  </section>
 
-  // Condense (dồn tay sau khi rút)
-  const CONDENSE_DURATION = 220;
-  const CONDENSE_EASE     = 'cubic-bezier(.30,0,.00,1)';
-  const OVERSHOOT_RATIO   = 0.3;
+  <!-- ===== App ===== -->
+  <main id="app" class="invisible" aria-live="polite">
+    <header class="appHeader zone" role="banner">
+      <span id="roomTag" class="tag">Phòng: --</span>
+      <strong id="turnHint" class="turn turn--end">Host authoritative</strong>
+      <span id="roleTag" class="tag">Vai: --</span>
+    </header>
 
-  // ===== Game state =====
-  let selectedCard = null;
-  let deck = [];            // 15 lá
-  let remainingDeck = [];   // phần chưa chia
-  let chosenCard = null;    // lá chọn trong overlay
+    <section class="zone">
+      <div id="pile" class="pile" aria-label="Bài mở (Pile)"></div>
+    </section>
 
-  // ===== Deck helpers =====
-  function buildDeck(){
-    const d = [];
-    for(let n=1;n<=4;n++){ d.push({s:'g',n}); }
-    for(let n=1;n<=4;n++){ d.push({s:'r',n}); }
-    for(let n=1;n<=4;n++){ d.push({s:'y',n}); }
-    for(let n=5;n<=7;n++){ d.push({s:'k',n}); }
-    return d;
-  }
-  function shuffle(arr){
-    for(let i=arr.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
-      [arr[i],arr[j]] = [arr[j],arr[i]];
-    }
-    return arr;
-  }
+    <section id="openZone" class="zone openZone" aria-label="Khu C (OpenZone)">
+      <div class="ozGrid">
+        <div class="ozTitle">Lá bài mở</div>
+        <div id="ozOpen" class="ozSlot" aria-label="Lá bài mở chung"></div>
+        <div id="ozHidden" class="ozSlot" aria-label="Lá bài bí ẩn"></div>
+        <button id="btnReveal" class="ozReveal" aria-label="Mở lá bài bí ẩn">Mở lá bài bí ẩn</button>
+      </div>
+    </section>
 
-  // ===== Sprite build =====
-  function ensureFaces(card){
-    if(card.querySelector('.front')) return;
-    const suit = card.dataset.suit;
-    const no   = card.dataset.no;
-    const frontSrc = `${ASSET_DIR}/${suit}${no}.png`;
-    const backSrc  = `${ASSET_DIR}/${BACK_FILE}`;
-    const front = document.createElement('div');
-    front.className = 'face front';
-    front.style.backgroundImage = `url("${frontSrc}")`;
-    const back = document.createElement('div');
-    back.className = 'face back';
-    back.style.backgroundImage = `url("${backSrc}")`;
-    card.dataset.frontSrc = frontSrc;
-    card.dataset.backSrc  = backSrc;
-    card.append(front, back);
-    if(card.dataset.hidden) card.style.transform = 'rotateY(180deg)';
-  }
-  function createCard(suit, no, {hidden=false, selectable=false} = {}){
-    const d = document.createElement('div');
-    d.className = 'card';
-    d.dataset.suit = suit;
-    d.dataset.no = no;
-    if(hidden) d.dataset.hidden = 'true';
-    if(selectable) d.dataset.selectable = 'true';
-    ensureFaces(d);
-    return d;
-  }
+    <section class="zone">
+      <div id="stage" class="stage" aria-label="Trước mặt (Stage)"></div>
+    </section>
 
-  // ===== Selection in Hand =====
-  $('#hand').addEventListener('click', e => {
-    const card = e.target.closest('.card'); if(!card) return;
-    $$('#hand .card.selected').forEach(c => c.classList.remove('selected'));
-    selectedCard = card; card.classList.add('selected');
-  });
+    <section class="zone">
+      <div id="hand" class="hand" aria-label="Tay bài (Hand)"></div>
+    </section>
 
-  // ===== Geometry helpers =====
-  function rectCenter(el){
-    const r = el.getBoundingClientRect();
-    return { x: r.left + r.width/2, y: r.top + r.height/2 };
-  }
-  function makeSpacerLike(el){
-    const s = document.createElement('div');
-    const cs = getComputedStyle(el);
-    s.style.width  = cs.width;
-    s.style.height = cs.height;
-    s.style.flex   = cs.flex || '0 0 auto';
-    s.style.margin = cs.margin;
-    return s;
-  }
+    <footer class="zone controls" role="contentinfo">
+      <button id="btnPlay">Đánh</button>
+      <button id="btnEnd">Kết thúc lượt</button>
+      <button id="btnNew" class="warn">Ván mới</button>
+    </footer>
+  </main>
 
-  // ===== Flight (FLIP) + Condense on Hand =====
-  async function flyFLIP(cardEl, toContainer, {duration=680}={}){
-    const fromContainer = cardEl.parentNode;
-    const spacer = makeSpacerLike(cardEl);
-    cardEl.parentNode.insertBefore(spacer, cardEl);
-
-    // FIRST → LAST
-    const first = rectCenter(cardEl);
-    toContainer.appendChild(cardEl);
-    const last = rectCenter(cardEl);
-    const dx = first.x - last.x;
-    const dy = first.y - last.y;
-
-    // Flight
-    cardEl.style.willChange = 'transform, box-shadow';
-    cardEl.style.zIndex = 999;
-    cardEl.style.transform = `translate(${dx}px, ${dy}px)`;
-    cardEl.getBoundingClientRect();
-    const anim = cardEl.animate([
-      { transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(1)` },
-      { transform: `translate(${dx*0.1}px, ${dy*0.1}px) rotate(6deg) scale(1.15)`, offset: 0.65 },
-      { transform: 'translate(0,0) rotate(0deg) scale(1.0)' }
-    ], { duration, easing: EASE_FLIGHT, fill: 'forwards' });
-    await anim.finished;
-
-    // cleanup flight
-    cardEl.style.transform = '';
-    cardEl.style.willChange = '';
-    cardEl.style.zIndex = '';
-
-    // Condense phần còn lại trong HAND (nếu xuất phát từ hand)
-    if (fromContainer && fromContainer.classList.contains('hand')) {
-      // chụp vị trí cũ
-      const remain = [...fromContainer.children].filter(el => el !== spacer && el.classList?.contains('card'));
-      const oldMap = new Map();
-      remain.forEach(el => oldMap.set(el, el.getBoundingClientRect()));
-
-      // bỏ spacer rồi đo vị trí mới
-      spacer.remove();
-      requestAnimationFrame(() => {
-        remain.forEach(el => {
-          const r2  = el.getBoundingClientRect();
-          const old = oldMap.get(el);
-          const dx2 = old.left - r2.left;
-          const dy2 = old.top  - r2.top;
-          if (Math.abs(dx2) < 0.5 && Math.abs(dy2) < 0.5) return;
-
-          // overshoot + xoay nhẹ
-          const ox = -dx2 * OVERSHOOT_RATIO;
-          const oy = -dy2 * OVERSHOOT_RATIO;
-          const rStart = (Math.random() * 6 - 10).toFixed(1);
-          const rOver  = (Math.random() * 10 - 15).toFixed(1);
-
-          el.animate(
-            [
-              { transform:`translate(${dx2}px, ${dy2}px) rotate(${rStart}deg)` },
-              { transform:`translate(${ox}px, ${oy}px) rotate(${rOver}deg)`, offset: 0.75 },
-              { transform:`translate(0,0) rotate(0deg)` }
-            ],
-            { duration: CONDENSE_DURATION, easing: CONDENSE_EASE, fill: 'both' }
-          );
-        });
-      });
-    } else {
-      spacer.remove();
-    }
-
-    // settle nhẹ cho lá vừa đáp
-    cardEl.style.animation = 'settle .22s ease';
-    setTimeout(()=>{ if(cardEl) cardEl.style.animation=''; }, 240);
-  }
-
-  // ===== Flip 3D =====
-  function swapFaces(card){
-    const front = card.querySelector('.front');
-    const back  = card.querySelector('.back');
-    const f = card.dataset.frontSrc;
-    const b = card.dataset.backSrc;
-    card.dataset.frontSrc = b;
-    card.dataset.backSrc  = f;
-    front.style.backgroundImage = `url("${card.dataset.frontSrc}")`;
-    back .style.backgroundImage = `url("${card.dataset.backSrc}")`;
-  }
-  async function flip3D(card, {duration=420}={}){
-    await new Promise(r => setTimeout(r, 60));
-    const anim = card.animate([
-      { transform: 'rotateY(0deg)' },
-      { transform: 'rotateY(90deg)', offset: .5 },
-      { transform: 'rotateY(180deg)' }
-    ], { duration, easing: 'cubic-bezier(.33,0,.33,1)', fill: 'forwards' });
-    setTimeout(()=> swapFaces(card), duration * 0.5);
-    await anim.finished;
-    card.style.transform = 'rotateY(0)';
-    card.style.animation = 'settle .22s ease';
-    setTimeout(()=>{ card.style.animation=''; }, 240);
-  }
-
-// ===== Deal fan cho Hand lúc đầu ván (no WAAPI) =====
-  function dealFan(container) {
-    if (!container) return;
-    const cards = [...container.children].filter(el => el.classList?.contains('card'));
-    
-    // Reset trạng thái ban đầu
-    cards.forEach(el => {
-      el.style.opacity = 0;
-      el.style.transform = 'translateX(-140px) rotate(0deg)';
-      el.style.transition = 'none';
-    });
-
-    // Bắt đầu fan từng lá
-    cards.forEach((el, i) => {
-      const rStart = (Math.random() * 8 - 4).toFixed(1);
-      // Delay thủ công qua setTimeout
-      setTimeout(() => {
-        el.style.transition = 'transform 0.42s cubic-bezier(.30,0,.00,1), opacity 0.42s ease-out';
-        el.style.transform = `translateX(0) rotate(0deg)`;
-        el.style.opacity = 1;
-      }, i * 70);
-    });
-  }
-
-  // ===== New Game (random deal, bao gồm OpenZone) =====
-  function newGame(){
-    selectedCard = null;
-    chosenCard = null;
-    deck = shuffle(buildDeck());
-
-    // clear UI
-    $('#stage').innerHTML = '';
-    $('#pile').innerHTML  = '';
-    $('#hand').innerHTML  = '';
-    $('#openZone').innerHTML = '';
-    $('#overlayGrid').innerHTML = '';
-
-    // chia: Hand 6, Open 1, Hidden 1
-    const handCount = 6, openCount = 1, hiddenCount = 1;
-    const handCards = deck.slice(0, handCount);
-    const openCard  = deck[handCount];
-    const hiddenCard= deck[handCount+1];
-    remainingDeck   = deck.slice(handCount + openCount + hiddenCount);
-
-    // render Hand
-    handCards.forEach(({s,n}) => $('#hand').appendChild(createCard(s, n)));
-
-    // render OpenZone
-    if(openCard)  $('#openZone').appendChild(createCard(openCard.s,  openCard.n));
-    if(hiddenCard)$('#openZone').appendChild(createCard(hiddenCard.s, hiddenCard.n, {hidden:true}));
-
-    // ensure sprites + fan
-    $$('.card').forEach(ensureFaces);
-    dealFan($('#hand'));
-  }
-
-  // ===== Overlay Reveal (show remainingDeck) =====
-  function openRevealOverlay(){
-    const grid = $('#overlayGrid');
-    grid.innerHTML = '';
-    chosenCard = null;
-
-    remainingDeck.forEach(({s,n})=>{
-      const c = createCard(s, n, {hidden:false, selectable:true});
-      c.addEventListener('click', ()=>{
-        [...grid.children].forEach(el=>el.classList.remove('selected'));
-        c.classList.add('selected');
-        chosenCard = {s,n};
-      });
-      grid.appendChild(c);
-    });
-
-    $('#overlay').classList.add('show');
-  }
-  function closeRevealOverlay(){
-    $('#overlay').classList.remove('show');
-  }
-
-  // ===== FX helpers =====
-  function playConfetti(count=120){
-    const layer = $('#fxLayer');
-    const colors = ['#ff5757','#ffd857','#57ffa0','#57a7ff','#d857ff','#fff'];
-    for(let i=0;i<count;i++){
-      const d = document.createElement('div');
-      d.className = 'confetti-piece';
-      d.style.left = Math.random()*100 + 'vw';
-      d.style.top  = (-10 - Math.random()*30) + 'vh';
-      d.style.background = colors[Math.floor(Math.random()*colors.length)];
-      d.style.animationDuration = (0.9 + Math.random()*0.9) + 's';
-      d.style.animationDelay = (Math.random()*0.25) + 's';
-      d.style.width = (6 + Math.random()*6) + 'px';
-      d.style.height= (10 + Math.random()*12) + 'px';
-      layer.appendChild(d);
-      setTimeout(()=> d.remove(), 2000);
-    }
-  }
-  function playSad(drops=36){
-    const layer = $('#fxLayer');
-
-    const emoji = document.createElement('div');
-    emoji.className = 'sad-emoji';
-    emoji.textContent = '😢';
-    layer.appendChild(emoji);
-    setTimeout(()=> emoji.remove(), 1400);
-
-    for(let i=0;i<drops;i++){
-      const d = document.createElement('div');
-      d.className = 'sad-drop';
-      d.style.left = Math.random()*100 + 'vw';
-      d.style.top  = (-10 - Math.random()*30) + 'vh';
-      d.style.animationDuration = (0.9 + Math.random()*0.6) + 's';
-      layer.appendChild(d);
-      setTimeout(()=> d.remove(), 2000);
-    }
-  }
-
-  // ===== Buttons =====
-  $('#btnPlay').addEventListener('click', async ()=>{
-    if(!selectedCard) return;
-    selectedCard.classList.remove('selected');
-    await flyFLIP(selectedCard, $('#stage'));
-    selectedCard = null;
-  });
-
-  $('#btnEnd').addEventListener('click', async ()=>{
-    const list = $$('#stage .card');
-    for(const c of list){
-      await flyFLIP(c, $('#pile'), {duration: 560});
-    }
-  });
-
-  $('#btnReveal').addEventListener('click', openRevealOverlay);
-
-  // Overlay actions
-  $('#btnCancel').addEventListener('click', ()=>{
-    chosenCard = null;
-    closeRevealOverlay();
-  });
-
-  // Confirm chọn: lật lá úp ở OpenZone và phát hiệu ứng
-  $('#btnConfirm').addEventListener('click', async ()=>{
-    if(!chosenCard) return;
-    closeRevealOverlay();
-
-    const hiddenEl = $('#openZone [data-hidden="true"]');
-    if(!hiddenEl) return;
-
-    await flip3D(hiddenEl);
-    hiddenEl.removeAttribute('data-hidden');
-
-    const isMatch = (String(hiddenEl.dataset.suit) === String(chosenCard.s))
-                 && (String(hiddenEl.dataset.no)   === String(chosenCard.n));
-    if(isMatch) playConfetti();
-    else        playSad();
-  });
-
-  $('#btnNew').addEventListener('click', newGame);
-
-  // ===== Init =====
-  newGame();
-</script>
+  <!-- Scripts (defer để không chặn render) -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="net.js" defer></script>
+  <script src="marks.js" defer></script>
+  <script src="animations.js" defer></script>
+  <script src="app.js" defer></script>
 </body>
 </html>
