@@ -1,13 +1,13 @@
-// App logic + Service Worker register + install prompt
 const swStatus = document.getElementById('swStatus');
 const btnPing = document.getElementById('btnPing');
 const btnInstall = document.getElementById('btnInstall');
 
-// --- Service Worker registration ---
+const SW_URL = './sw.js';
+
 if ('serviceWorker' in navigator) {
   try {
-    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-    swStatus.textContent = 'Service Worker: đã đăng ký (' + (reg.scope || '/') + ')';
+    const reg = await navigator.serviceWorker.register(SW_URL, { scope: './' });
+    swStatus.textContent = 'Service Worker: đã đăng ký (' + (reg.scope || './') + ')';
   } catch (e) {
     swStatus.textContent = 'Service Worker: lỗi đăng ký – ' + e.message;
   }
@@ -15,18 +15,16 @@ if ('serviceWorker' in navigator) {
   swStatus.textContent = 'Trình duyệt không hỗ trợ Service Worker.';
 }
 
-// --- Test an offline fetch (ping a small JSON created at build time) ---
 btnPing?.addEventListener('click', async () => {
   try {
-    const res = await fetch('/offline-ping.json', { cache: 'no-store' });
+    const res = await fetch('./offline-ping.json', { cache: 'no-store' });
     const data = await res.json();
     alert('OK! Cache hoạt động. time=' + data.time);
   } catch (e) {
-    alert('Không tải được (có thể đang offline & chưa có cache). ' + e.message);
+    alert('Không tải được (có thể offline & chưa cache). ' + e.message);
   }
 });
 
-// --- Basic install prompt for Android/Chromium ---
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
