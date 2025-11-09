@@ -1,8 +1,8 @@
 {
   "name": "Card Feel – PWA",
   "short_name": "CardFeel",
-  "start_url": "/index.html",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0b1220",
   "theme_color": "#0b1220",
