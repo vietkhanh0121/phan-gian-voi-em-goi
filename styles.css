@@ -1,6 +1,6 @@
 :root{
   /* Card */
-  --cardW: 60px; --cardH: 120px; --cardCornerRadius: 4px;
+  --cardW: 40px; --cardH: 60px; --cardCornerRadius: 4px;
 
   /* Theme */
   --bg:#0b1220; --panel:#0f172a; --line:#263247; --text:#e9f0ff;
