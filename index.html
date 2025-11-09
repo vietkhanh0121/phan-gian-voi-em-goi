@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Card Feel – PWA</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Card Feel">
+  <link rel="apple-touch-icon" href="assets/icons/icon-512.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <h1>Card Feel – PWA</h1>
+      <p class="muted">Demo PWA chạy full-screen, có thể “Add to Home Screen”.</p>
+    </header>
+
+    <section class="card">
+      <h2>Xin chào 👋</h2>
+      <p>Nếu bạn mở link này bằng Safari trên iPhone, hãy vào <strong>Share → Add to Home Screen</strong> để cài như app.</p>
+      <div class="status">
+        <span id="swStatus">Service Worker: chưa đăng ký…</span>
+      </div>
+      <div class="actions">
+        <button id="btnPing">Thử cache offline</button>
+        <button id="btnInstall" hidden>Cài đặt (Android/Chrome)</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Offline thử nghiệm</h2>
+      <p>File này, CSS/JS và icon đã được thêm vào cache. Tắt mạng và tải lại trang để kiểm tra.</p>
+    </section>
+
+    <footer>
+      <small>© 2025 Card Feel – PWA Starter</small>
+    </footer>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
