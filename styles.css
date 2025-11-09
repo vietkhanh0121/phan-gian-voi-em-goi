@@ -1,16 +1,255 @@
 :root{
-  --bg:#0b1220; --panel:#0f172a; --line:#263247; --text:#e9f0ff; --muted:#9fb0cc;
-  --accent:#2a9a4a;
+  /* Card */
+  --cardW: 60px; --cardH: 120px; --cardCornerRadius: 4px;
+
+  /* Theme */
+  --bg:#0b1220; --panel:#0f172a; --line:#263247; --text:#e9f0ff;
+
+  /* Layers */
+  --z-zones: 1;
+  --z-fx: 9000;
+  --z-controls: 9999;
+
+  /* Motion */
+  --hoverRaise: -6px;
+  --ease: cubic-bezier(.43,.28,0,1.19);
+
+  /* Strokes/Shadows */
+  --stroke: rgb(139,139,139);
+  --innerStroke: rgba(0,0,0,.28);
+  --shadowSm: 0 8px 14px rgba(0,0,0,.35);
+  --shadowMd: 0 10px 18px rgba(0,0,0,.50);
+
+  /* Mark Board */
+  --mb-gap: 5px;
+  --mb-badge-size: 40px;
+  --mb-font-size: 40px;
+  --mb-font-weight: 300;
+  --mb-radius: 10px;
+  --mb-cell-border: #23314a;
+  --mb-bg: #0d1628;
+  --mb-cell-bg: #0b1220;
+
+    /* … các biến cũ … */
+  --splitfx-cardW: var(--cardW);
+  --splitfx-cardH: var(--cardH);
 }
-*{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial}
-.wrap{max-width:760px;margin:0 auto;padding:24px;display:flex;flex-direction:column;gap:16px}
-h1{margin:8px 0 4px}
-.muted{color:var(--muted)}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
-.actions{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
-button{background:var(--accent);border:0;color:white;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer}
-button:disabled,button[hidden]{display:none}
-.status{margin-top:8px;color:var(--muted)}
-footer{opacity:.7;margin-top:20px;text-align:center}
+
+/* ===== Base ===== */
+*{ box-sizing:border-box }
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+}
+.invisible{ display:none !important }
+
+/* ===== Layout wrappers ===== */
+.zone{
+  position:relative; z-index:var(--z-zones);
+  border:1px solid var(--line); background:var(--panel);
+  border-radius:12px; padding:12px;
+}
+.title{ font-weight:800; margin-bottom:8px; opacity:.8 }
+
+/* ===== Header ===== */
+.appHeader{ display:flex; align-items:center; justify-content:space-between; gap:8px }
+.tag{
+  padding:4px 8px; border:1px solid var(--line); border-radius:8px;
+  background:#0d1628; font-weight:800; font-size:12px;
+}
+.turn{ font-weight:900 }
+.turn--my{ color:#22c55e }
+.turn--opp{ color:#9fb0cc }
+.turn--end{ color:#f59e0b }
+
+/* ===== Lobby ===== */
+.lobby{ min-height:100dvh; display:grid; place-items:center; padding:24px }
+.lobbyCard{
+  width:min(520px,92vw); border:1px solid var(--line); border-radius:12px;
+  background:linear-gradient(180deg,#16233f,#0e172b); padding:20px; text-align:center;
+}
+.lobbyBtns{ display:flex; gap:10px; justify-content:center; margin-top:8px }
+.muted{ opacity:.75 }
+.small{ font-size:12px }
+button.primary,button.secondary{
+  appearance:none; border:1px solid var(--line); cursor:pointer; font-weight:800;
+  padding:10px 14px; border-radius:10px; font-size:14px;
+}
+button.primary{ background:linear-gradient(180deg,#22c55e,#16a34a); color:#e9f0ff; border-color:#1ea857 }
+button.secondary{ background:#1b2540; color:#e9f0ff }
+
+/* ===== Zones ===== */
+.hand,.stage,.pile,.openZone{
+  min-height: calc(var(--cardH) + 12px);
+  display:flex; align-items:flex-end; overflow:visible; z-index:var(--z-zones);
+  gap:10px;
+}
+
+/* Căn giữa cụm bài, KHÔNG dùng gap để tránh dãn */
+.hand,.stage,.pile{ justify-content:center; gap:0 }
+
+/* Hand: chỉ lộ 50% phần trên, xếp thẳng, không fan/tilt */
+.hand{
+  align-items:flex-start;
+  height: calc(var(--cardH) * 0.5); /* lộ nửa trên */
+}
+.hand .card{ transform: translateY(0) }
+
+/* ===== Card (sprite-based) ===== */
+.card{
+  width:var(--cardW); height:var(--cardH); border-radius:var(--cardCornerRadius);
+  position:relative; cursor:pointer; user-select:none;
+  transform-style:preserve-3d;
+  transition: transform .15s ease, box-shadow .15s ease, border .15s ease, outline-color .15s ease;
+  outline: 1px solid var(--stroke);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadowSm), 0 0 0 1px rgba(0,0,0,.22) inset;
+  will-change: transform;
+}
+.card:hover{ transform: translateY(var(--hoverRaise)) rotateZ(var(--rz,0)) scale(1.03) }
+
+/* Stage/Pile: không tương tác */
+.stage .card,.pile .card{
+  pointer-events:none; cursor:default; transform:none; border:1px solid var(--stroke);
+}
+
+/* ===== Faces (sprites) ===== */
+.face{
+  position:absolute; inset:0;
+  backface-visibility:hidden;
+  border-radius:var(--cardCornerRadius);
+  background-position:center center;
+  background-size:cover;
+  background-repeat:no-repeat;
+  image-rendering:-webkit-optimize-contrast;
+  image-rendering:crisp-edges;
+  image-rendering:pixelated;
+}
+.front{ /* ảnh mặt trước set từ JS */ }
+.back{
+  background-image:url('assets/cards/back.png') !important;
+  transform:rotateY(180deg);
+}
+
+/* Lá úp: luôn thấy mặt sau (ưu tiên cao) */
+.card.facedown{ transform:rotateY(180deg) !important; }
+.card.facedown .front{ visibility:hidden; }
+.card.facedown .back{ visibility:visible; backface-visibility:visible !important; }
+
+/* ===== Overlap cho Hand/Stage/Pile + stroke tách lớp ===== */
+/* Lưu ý: overlap -0.35 * cardW để giữ nhìn đẹp, có thể nâng lên -0.50 nếu muốn chồng dày hơn */
+.hand .card,.stage .card,.pile .card{
+  flex:0 0 auto;
+  margin-left: calc(var(--cardW) * -0.30);
+  transform:none; transform-origin:bottom center;
+  outline:1px solid var(--stroke);
+  box-shadow: var(--shadowMd), 0 0 0 1px var(--innerStroke) inset;
+}
+.hand .card:first-child,.stage .card:first-child,.pile .card:first-child{ margin-left:0; }
+
+/* Các zone khác luôn full lá (không bị clip) */
+.stage .card,.pile .card,.openZone .card{ clip-path: inset(0); }
+
+/* ===== Selected ===== */
+.hand .card.selected{
+  transform: translateY(calc(-0.25 * var(--cardH))) rotateZ(-5deg) scale(1.05) !important;
+  z-index:10;
+  border:2px solid rgba(102,255,8,0.85);
+  outline-color: rgba(255,255,255,.30);
+  box-shadow: 0 14px 22px rgba(0,0,0,.50), 0 0 0 1px rgba(0,0,0,.35) inset;
+}
+
+/* ===== OpenZone (Title → Open → Hidden → Reveal) ===== */
+.openZone .ozGrid{
+  display:grid;
+  grid-template-columns: max-content var(--cardW) var(--cardW) max-content;
+  align-items:center; gap:14px;
+}
+.openZone .ozTitle{ font-weight:800; opacity:.9; white-space:nowrap; }
+.openZone .ozSlot{
+  min-width:var(--cardW); min-height:var(--cardH);
+  display:flex; align-items:flex-end; justify-content:center; position:relative;
+}
+/* chỉ cấm hover/click trên thẻ, nút vẫn bấm được */
+.openZone .card{ pointer-events:none; cursor:default; }
+/* không vô hiệu hoá transform ở OpenZone để flip hoạt động */
+#ozHidden .card .back{ background-image:url('assets/cards/back.png') !important; }
+
+/* Reveal button */
+.openZone .ozReveal{
+  appearance:none; border:1px solid var(--line);
+  background:linear-gradient(180deg,#f59e0b,#d97706); color:#e9f0ff;
+  padding:10px 12px; border-radius:10px; font-weight:800; cursor:pointer; pointer-events:auto;
+}
+
+/* ===== Controls ===== */
+.controls{
+  display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
+  position:sticky; bottom:0; z-index:var(--z-controls); pointer-events:auto;
+  background:linear-gradient(180deg, rgba(15,23,42,0), rgba(15,23,42,.85));
+  padding-top:8px;
+}
+button{
+  appearance:none; border:1px solid var(--line); background:#1b2540; color:#e9f0ff;
+  padding:10px 12px; border-radius:10px; font-weight:800; cursor:pointer; pointer-events:auto;
+}
+button.btn-off{ opacity:.5; cursor:not-allowed }
+button.warn{ background:linear-gradient(180deg,#f59e0b,#d97706); border-color:#b45309 }
+
+/* ===== FX Layer ===== */
+#fxLayer{ position:fixed; inset:0; pointer-events:none; z-index:var(--z-fx); }
+
+/* ===== Anim helpers ===== */
+@keyframes settle{
+  0%{ transform: translate(0,0) scale(1) }
+  35%{ transform: translate(0,2px) scale(1.03) }
+  100%{ transform: translate(0,0) scale(1) }
+}
+
+/* ===== Secret Mark Board ===== */
+.markBoard{
+  border:1px solid var(--line); border-radius:5px; padding:5px; background:#0d1628;
+  display:grid; grid-template-columns:repeat(4,1fr); gap:5px;
+}
+.mb-cell{
+  position:relative; background:#0b1220; border:1px solid #23314a; border-radius:5px;
+  aspect-ratio:2/1; display:grid; place-items:center;
+}
+.mb-badge{
+  position:absolute; top:6px; left:6px; width:26px; height:26px;
+  display:grid; place-items:center; font-weight:800; font-size:12px; color:#fff; border-radius:6px;
+}
+.mb-badge.g{background:#2a9a4a}
+.mb-badge.r{background:#EF4B3C}
+.mb-badge.y{background:#FFBD17; color:#1a1a1a}
+.mb-badge.k{background:#333}
+.mb-badge.empty{background:#1c2540;color:#9fb0cc}
+.mb-marks{ font-size:30px; font-weight:400; line-height:1; text-shadow:0 1px 1px rgba(0,0,0,.35) }
+.mark.green{color:#2d69ff}
+.mark.purple{color:#b46cff}
+.mark.white{color:#fff}
+.mb-cell:hover .mb-marks{ transform:scale(1.05); transition:transform .12s ease }
+
+/* ===== Responsive ===== */
+@media (max-width:420px){
+  :root{ --mb-gap:8px; --mb-badge-size:22px; --mb-font-size:24px }
+}
+
+/* ===== Accessibility ===== */
+@media (prefers-reduced-motion:reduce){
+  .card{ transition:none }
+  .card:hover{ transform:none }
+}
+
+/* Ẩn tiêu đề các zone khi cần */
+.zone .title,.zoneTitle{ display:none !important }
+
+/* SplitFX overlay nền đen 50% */
+.splitfx-overlay{ background: rgba(0,0,0,.5) !important; }
+
+/* Dùng kích thước lá bài hiện hành cho SplitFX */
+:root{
+  --splitfx-cardW: var(--cardW);
+  --splitfx-cardH: var(--cardH);
+}
+
