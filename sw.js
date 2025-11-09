@@ -1,9 +1,8 @@
-// Basic cache-first service worker (good enough for iOS/Android install)
-const CACHE = 'cardfeel-v1';
+const CACHE = 'cardfeel-ghp-v1';
 const PRECACHE = [
-  '/', '/index.html', '/styles.css', '/app.js',
-  '/manifest.json', '/assets/icons/icon-192.png', '/assets/icons/icon-512.png',
-  '/offline-ping.json'
+  './', './index.html', './styles.css', './app.js',
+  './manifest.json', './assets/icons/icon-192.png', './assets/icons/icon-512.png',
+  './offline-ping.json'
 ];
 
 self.addEventListener('install', event => {
@@ -20,7 +19,6 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   const { request } = event;
-  // Always try cache first; fallback to network
   event.respondWith(
     caches.match(request).then(cached => cached || fetch(request))
   );
