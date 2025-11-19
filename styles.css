@@ -209,8 +209,8 @@ body{
 /* ===== Sprite button size (global) ===== */
 .appHeader .zonePad .btn--new{
   /* FIX: thu nhỏ riêng nút New trong header */
-  width:clamp(72px, 20vw, 92px);
-  height:calc(clamp(72px, 20vw, 92px) / 2.67);
+  width:clamp(88px, 11cqw, 100px);
+  height:calc(clamp(88px, 11cqw, 100px) / 2.67);
 }
 
 /* Giữ rule cũ cho các nút khác */
