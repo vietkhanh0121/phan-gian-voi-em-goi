@@ -199,7 +199,7 @@ body{
 
 .appHeader .zonePad .tag{
   /* cho tag chiếm linh động, không đẩy nút ra ngoài */
-  flex:1 1 auto;
+ /* flex:1 1 auto;*/
 }
 
 .appHeader .zonePad .card{
