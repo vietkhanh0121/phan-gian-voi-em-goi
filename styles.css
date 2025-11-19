@@ -102,6 +102,7 @@ body{
   position:relative;
   background:#161512;
   border:1px solid var(--line);
+  overflow:hidden;
 }
 
 #viewport::after{
@@ -159,6 +160,7 @@ body{
   position:absolute;
   inset:0;
   overflow:auto;
+  overflow-x:hidden;
 }
 
 #app{ z-index:2; }
@@ -167,6 +169,7 @@ body{
 /* =========================
    6) HEADER
    ========================= */
+/* ===== HEADER ===== */
 .appHeader{
   position:relative;
   z-index:calc(var(--z-zones)+1);
@@ -179,18 +182,38 @@ body{
 
 .appHeader .zonePad{
   display:flex;
-  align-items:start;
+  align-items:flex-start;
   justify-content:space-between;
-  gap:12px;
+  gap:8px;
   padding:8px 12px;
   min-height:calc(var(--cardH)/2 + 20px);
+
+  /* FIX: cho phép co & xuống dòng trên màn hình nhỏ */
+  flex-wrap:wrap;
+}
+
+.appHeader .zonePad > *{
+  /* FIX: cho phép item co, không ép rộng container */
+  min-width:0;
+}
+
+.appHeader .zonePad .tag{
+  /* cho tag chiếm linh động, không đẩy nút ra ngoài */
+  flex:1 1 auto;
 }
 
 .appHeader .zonePad .card{
   margin:-13px !important;
 }
 
-.appHeader .zonePad .btn--new,
+/* ===== Sprite button size (global) ===== */
+.appHeader .zonePad .btn--new{
+  /* FIX: thu nhỏ riêng nút New trong header */
+  width:clamp(72px, 20vw, 92px);
+  height:calc(clamp(72px, 20vw, 92px) / 2.67);
+}
+
+/* Giữ rule cũ cho các nút khác */
 .lobbyBtns .spriteBtn,
 .spriteBtn,
 #btnResultNew{
