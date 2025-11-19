@@ -1,255 +1,1422 @@
+/* =========================
+   1) FONT & TOKENS
+   ========================= */
+@font-face{
+  font-family:'SVN-Arigena';
+  src:url('assets/fonts/SVN-Arigena.otf') format('opentype');
+  font-weight:normal;
+  font-style:normal;
+  font-display:swap;
+}
+
+@font-face{
+  font-family:'PermanentMarker';
+  src:url('assets/fonts/PermanentMarker-Regular.ttf') format('truetype');
+  font-weight:normal;
+  font-style:normal;
+  font-display:swap;
+}
+
 :root{
-  /* Card */
-  --cardW: 40px; --cardH: 60px; --cardCornerRadius: 4px;
+  /* Card (landscape) */
+  --cardW:40px; --cardH:60px; --cardCornerRadius:3px;
 
   /* Theme */
-  --bg:#0b1220; --panel:#0f172a; --line:#263247; --text:#e9f0ff;
+  --bg:#161512; --panel:#0f172a; --line:#263247; --text:#e9f0ff;
 
   /* Layers */
-  --z-zones: 1;
-  --z-fx: 9000;
-  --z-controls: 9999;
+  --z-zones:1; --z-fx:120000; --z-controls:9999;
 
   /* Motion */
-  --hoverRaise: -6px;
-  --ease: cubic-bezier(.43,.28,0,1.19);
+  --hoverRaise:-6px; --ease:cubic-bezier(.43,.28,0,1.19);
 
   /* Strokes/Shadows */
-  --stroke: rgb(139,139,139);
-  --innerStroke: rgba(0,0,0,.28);
-  --shadowSm: 0 8px 14px rgba(0,0,0,.35);
-  --shadowMd: 0 10px 18px rgba(0,0,0,.50);
+  --stroke:#b99f6c; --innerStroke:rgba(0,0,0,.28);
+  --shadowSm:0 4px 7px rgba(0,0,0,.35);
+  --shadowMd:6px 6px 0 rgba(0,0,0,.70);
 
-  /* Mark Board */
-  --mb-gap: 5px;
-  --mb-badge-size: 40px;
-  --mb-font-size: 40px;
-  --mb-font-weight: 300;
-  --mb-radius: 10px;
-  --mb-cell-border: #23314a;
-  --mb-bg: #0d1628;
-  --mb-cell-bg: #0b1220;
+  /* Mark Board (tỉ lệ theo asset) */
+  --mb-ar:1080/420;
 
-    /* … các biến cũ … */
-  --splitfx-cardW: var(--cardW);
-  --splitfx-cardH: var(--cardH);
+  /* Sprite button size (~2.67:1) */
+  --btnW:100px; --btnH:calc(var(--btnW)/2.67);
+
+  /* Overlap giữa lá (âm = chồng) */
+  --cardOverlap:-.4;
 }
 
-/* ===== Base ===== */
-*{ box-sizing:border-box }
+/* =========================
+   2) RESET & GLOBAL
+   ========================= */
+*{
+  box-sizing:border-box;
+}
+
+html,body{
+  margin:0;
+  padding:0;
+  width:100%;
+  height:100%;
+  background:var(--bg);
+  overflow:hidden;
+}
+
 body{
-  margin:0; background:var(--bg); color:var(--text);
-  font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  font-size:14px;
+  line-height:1.4;
 }
-.invisible{ display:none !important }
 
-/* ===== Layout wrappers ===== */
-.zone{
-  position:relative; z-index:var(--z-zones);
-  border:1px solid var(--line); background:var(--panel);
-  border-radius:12px; padding:12px;
+.invisible{ display:none !important; }
+
+.vh{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0 0 0 0) !important;
+  white-space:nowrap !important;
+  border:0 !important;
 }
-.title{ font-weight:800; margin-bottom:8px; opacity:.8 }
 
-/* ===== Header ===== */
-.appHeader{ display:flex; align-items:center; justify-content:space-between; gap:8px }
+/* =========================
+   3) VIEWPORT LETTERBOX (1080:2100)
+   ========================= */
+#gameWrapper{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:start;
+  justify-content:center;
+  background:#161512;
+}
+
+#viewport{
+  aspect-ratio:1080/2100;
+  width:min(100vw, calc(100vh * 1080/2100));
+  height:min(100vh, calc(100vw * 2100/1080));
+  overflow:hidden;
+  position:relative;
+  background:#161512;
+  border:1px solid var(--line);
+}
+
+#viewport::after{
+  content:"";
+  position:absolute;
+  left:0;
+  bottom:0;
+  width:100%;
+  height:auto;
+  background-image:url('assets/zones/footer_bg.png');
+  background-size:100% auto;
+  background-repeat:no-repeat;
+  background-position:bottom center;
+  aspect-ratio:1080/2100;
+  z-index:0;
+  pointer-events:none;
+}
+
+/* =========================
+   4) FX LAYER
+   ========================= */
+#fxLayer{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:var(--z-fx);
+}
+
+/* =========================
+   5) LOBBY & APP
+   ========================= */
+.tag,
+.turn,
+.ozTitle,
+.mb-badge,
+.mb-marks{
+  font-family:'SVN-Arigena',sans-serif;
+}
+
 .tag{
-  padding:4px 8px; border:1px solid var(--line); border-radius:8px;
-  background:#0d1628; font-weight:800; font-size:12px;
+  padding:4px 8px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#0d1628;
+  color:#bab9b8;
+  font-weight:800;
+  font-size:clamp(10px, 4cqw, 16px);
+  box-shadow:0 2px 2px rgba(0,0,0,.8) inset;
+  cursor:not-allowed;
+  pointer-events:none;
 }
-.turn{ font-weight:900 }
-.turn--my{ color:#22c55e }
-.turn--opp{ color:#9fb0cc }
-.turn--end{ color:#f59e0b }
 
-/* ===== Lobby ===== */
-.lobby{ min-height:100dvh; display:grid; place-items:center; padding:24px }
-.lobbyCard{
-  width:min(520px,92vw); border:1px solid var(--line); border-radius:12px;
-  background:linear-gradient(180deg,#16233f,#0e172b); padding:20px; text-align:center;
+#lobby,
+#app{
+  position:absolute;
+  inset:0;
+  overflow:auto;
 }
-.lobbyBtns{ display:flex; gap:10px; justify-content:center; margin-top:8px }
-.muted{ opacity:.75 }
-.small{ font-size:12px }
-button.primary,button.secondary{
-  appearance:none; border:1px solid var(--line); cursor:pointer; font-weight:800;
-  padding:10px 14px; border-radius:10px; font-size:14px;
-}
-button.primary{ background:linear-gradient(180deg,#22c55e,#16a34a); color:#e9f0ff; border-color:#1ea857 }
-button.secondary{ background:#1b2540; color:#e9f0ff }
 
-/* ===== Zones ===== */
-.hand,.stage,.pile,.openZone{
-  min-height: calc(var(--cardH) + 12px);
-  display:flex; align-items:flex-end; overflow:visible; z-index:var(--z-zones);
+#app{ z-index:2; }
+#lobby{ z-index:1; }
+
+/* =========================
+   6) HEADER
+   ========================= */
+.appHeader{
+  position:relative;
+  z-index:calc(var(--z-zones)+1);
+  background:transparent !important;
+}
+
+.zone--appHeader{
+  aspect-ratio:1080/100;
+}
+
+.appHeader .zonePad{
+  display:flex;
+  align-items:start;
+  justify-content:space-between;
+  gap:12px;
+  padding:8px 12px;
+  min-height:calc(var(--cardH)/2 + 20px);
+}
+
+.appHeader .zonePad .card{
+  margin:-13px !important;
+}
+
+.appHeader .zonePad .btn--new,
+.lobbyBtns .spriteBtn,
+.spriteBtn,
+#btnResultNew{
+  width:clamp(88px, 11cqw, 100px);
+  height:calc(clamp(88px, 11cqw, 100px) / 2.67);
+}
+
+/* =========================
+   7) ZONES (generic)
+   ========================= */
+.zone{
+  position:relative;
+  z-index:var(--z-zones);
+  background:var(--panel);
+  padding:0;
+  overflow:visible;
+  background-position:center;
+  background-size:cover;
+  background-repeat:no-repeat;
+}
+
+.zonePad{
+  display:block;
+  padding:12px;
+  width:100%;
+  height:100%;
+}
+
+/* =========================
+   8) TURN ZONE
+   ========================= */
+.zone--turn{
+  background:transparent;
+  background-repeat:no-repeat;
+  background-size:100% auto;
+  background-position:center center;
+  border-color:transparent;
+  text-align:center;
+  cursor:not-allowed;
+  pointer-events:none;
+  z-index:calc(var(--z-controls)-2);
+  aspect-ratio:1080/150;
+}
+
+.zone--turn.my-turn{
+  background-image:url("assets/zones/my_turn_zone.png");
+}
+
+.zone--turn.opp-turn{
+  background-image:url("assets/zones/opp_turn_zone.png");
+}
+
+#turnZone .zonePad{
+  padding:5px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+.turn{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  font-weight:900;
+  font-size:1.3em;
+  line-height:1.1;
+  text-align:center;
+  color:#201e1d;
+}
+
+.turn::before,
+.turn::after{
+  content:'';
+  width:0;
+  height:0;
+  display:inline-block;
+}
+
+.turn--my{  color:#3f5b23; }
+.turn--opp{ color:#a8cb8f; }
+.turn--end{ color:#472c05; }
+
+.zone--turn:has(.turn.turn--end){
+  background-color:rgba(255,150,0,.5) !important;
+}
+
+#turnZone .turn{
+  visibility:hidden !important;
+}
+
+/* =========================
+   9) CONTAINERS
+   ========================= */
+.hand,
+.stage,
+.pile,
+#openZone{
+  min-height:calc(var(--cardH) + 12px);
+  display:flex;
+  align-items:flex-end;
+  gap:10px;
+  z-index:var(--z-zones);
+}
+
+.hand{
+  justify-content:center !important;
+  align-items:flex-start;
+  overflow:visible !important;
+}
+
+.stage,
+.pile{
+  justify-content:flex-start !important;
+  align-items:center !important;
   gap:10px;
 }
 
-/* Căn giữa cụm bài, KHÔNG dùng gap để tránh dãn */
-.hand,.stage,.pile{ justify-content:center; gap:0 }
-
-/* Hand: chỉ lộ 50% phần trên, xếp thẳng, không fan/tilt */
-.hand{
-  align-items:flex-start;
-  height: calc(var(--cardH) * 0.5); /* lộ nửa trên */
+/* Pile height x2 */
+.pile{
+  min-height:calc(var(--cardH) + 20px) !important;
+  height:calc(var(--cardH) + 20px) !important;
+  align-items:flex-end !important;
+  overflow:visible;
 }
-.hand .card{ transform: translateY(0) }
 
-/* ===== Card (sprite-based) ===== */
+.zone--pile,
+.zone--stage{
+  background:none;
+  padding-inline:8cqw;
+}
+
+/* Hand chỉ hiển thị nửa trên lá */
+.zone--hand .zonePad{
+  padding-block:0;
+  height:calc(var(--cardH) + 30px);
+}
+
+/* =========================
+   10) CARD
+   ========================= */
 .card{
-  width:var(--cardW); height:var(--cardH); border-radius:var(--cardCornerRadius);
-  position:relative; cursor:pointer; user-select:none;
-  transform-style:preserve-3d;
-  transition: transform .15s ease, box-shadow .15s ease, border .15s ease, outline-color .15s ease;
-  outline: 1px solid var(--stroke);
-  border: 1px solid var(--stroke);
-  box-shadow: var(--shadowSm), 0 0 0 1px rgba(0,0,0,.22) inset;
-  will-change: transform;
-}
-.card:hover{ transform: translateY(var(--hoverRaise)) rotateZ(var(--rz,0)) scale(1.03) }
-
-/* Stage/Pile: không tương tác */
-.stage .card,.pile .card{
-  pointer-events:none; cursor:default; transform:none; border:1px solid var(--stroke);
-}
-
-/* ===== Faces (sprites) ===== */
-.face{
-  position:absolute; inset:0;
-  backface-visibility:hidden;
+  width:var(--cardW);
+  height:var(--cardH);
   border-radius:var(--cardCornerRadius);
-  background-position:center center;
+  position:relative;
+  cursor:pointer;
+  user-select:none;
+  transform-style:preserve-3d;
+  transition:transform .15s ease, box-shadow .15s ease, border .15s ease;
+  outline:1px solid var(--stroke);
+  box-shadow:var(--shadowSm), 0 0 0 1px rgba(0,0,0,.5) inset;
+  will-change:transform;
+}
+
+.card:hover{
+  transform:translateY(var(--hoverRaise)) scale(1.03);
+}
+
+.stage .card,
+.pile .card{
+  pointer-events:none;
+  cursor:default;
+  transform:none;
+}
+
+/* Faces: 3D flip */
+.face{
+  position:absolute;
+  inset:0;
+  border-radius:var(--cardCornerRadius);
+  background-position:center;
   background-size:cover;
   background-repeat:no-repeat;
-  image-rendering:-webkit-optimize-contrast;
-  image-rendering:crisp-edges;
-  image-rendering:pixelated;
+  backface-visibility:hidden;
 }
-.front{ /* ảnh mặt trước set từ JS */ }
+
+.front{ transform:rotateY(0deg); }
+
 .back{
   background-image:url('assets/cards/back.png') !important;
   transform:rotateY(180deg);
 }
 
-/* Lá úp: luôn thấy mặt sau (ưu tiên cao) */
-.card.facedown{ transform:rotateY(180deg) !important; }
-.card.facedown .front{ visibility:hidden; }
-.card.facedown .back{ visibility:visible; backface-visibility:visible !important; }
-
-/* ===== Overlap cho Hand/Stage/Pile + stroke tách lớp ===== */
-/* Lưu ý: overlap -0.35 * cardW để giữ nhìn đẹp, có thể nâng lên -0.50 nếu muốn chồng dày hơn */
-.hand .card,.stage .card,.pile .card{
-  flex:0 0 auto;
-  margin-left: calc(var(--cardW) * -0.30);
-  transform:none; transform-origin:bottom center;
-  outline:1px solid var(--stroke);
-  box-shadow: var(--shadowMd), 0 0 0 1px var(--innerStroke) inset;
+/* Úp bài */
+.card.facedown{
+  transform:rotateY(180deg);
 }
-.hand .card:first-child,.stage .card:first-child,.pile .card:first-child{ margin-left:0; }
 
-/* Các zone khác luôn full lá (không bị clip) */
-.stage .card,.pile .card,.openZone .card{ clip-path: inset(0); }
+/* Overlap stack */
+:where(.hand,.stage,.pile) .card{
+  flex:0 0 auto;
+  margin-left:calc(var(--cardW) * var(--cardOverlap));
+  transform-origin:bottom center;
+  outline:1px solid var(--stroke);
+  box-shadow:var(--shadowMd), 0 0 0 1px var(--innerStroke) inset;
+}
 
-/* ===== Selected ===== */
+:where(.hand,.stage,.pile) .card:first-child{
+  margin-left:0;
+}
+
+/* Selected (Hand) */
 .hand .card.selected{
-  transform: translateY(calc(-0.25 * var(--cardH))) rotateZ(-5deg) scale(1.05) !important;
+  transform:translateY(calc(-0.18 * var(--cardH))) scale(1.3) !important;
   z-index:10;
   border:2px solid rgba(102,255,8,0.85);
-  outline-color: rgba(255,255,255,.30);
-  box-shadow: 0 14px 22px rgba(0,0,0,.50), 0 0 0 1px rgba(0,0,0,.35) inset;
+  box-shadow:6px 20px 0 -3px rgba(0,0,0,.5);
 }
 
-/* ===== OpenZone (Title → Open → Hidden → Reveal) ===== */
-.openZone .ozGrid{
+/* =========================
+   11) OPEN ZONE (C)
+   ========================= */
+.zone--open,
+#openZone{
+  background:none !important;
+}
+
+.ozGrid{
   display:grid;
-  grid-template-columns: max-content var(--cardW) var(--cardW) max-content;
-  align-items:center; gap:14px;
-}
-.openZone .ozTitle{ font-weight:800; opacity:.9; white-space:nowrap; }
-.openZone .ozSlot{
-  min-width:var(--cardW); min-height:var(--cardH);
-  display:flex; align-items:flex-end; justify-content:center; position:relative;
-}
-/* chỉ cấm hover/click trên thẻ, nút vẫn bấm được */
-.openZone .card{ pointer-events:none; cursor:default; }
-/* không vô hiệu hoá transform ở OpenZone để flip hoạt động */
-#ozHidden .card .back{ background-image:url('assets/cards/back.png') !important; }
-
-/* Reveal button */
-.openZone .ozReveal{
-  appearance:none; border:1px solid var(--line);
-  background:linear-gradient(180deg,#f59e0b,#d97706); color:#e9f0ff;
-  padding:10px 12px; border-radius:10px; font-weight:800; cursor:pointer; pointer-events:auto;
+  grid-template-columns:max-content var(--cardW) var(--cardW) max-content;
+  align-items:center;
+  gap:14px;
+  justify-content:center;
 }
 
-/* ===== Controls ===== */
-.controls{
-  display:flex; gap:10px; flex-wrap:wrap; justify-content:center;
-  position:sticky; bottom:0; z-index:var(--z-controls); pointer-events:auto;
-  background:linear-gradient(180deg, rgba(15,23,42,0), rgba(15,23,42,.85));
-  padding-top:8px;
-}
-button{
-  appearance:none; border:1px solid var(--line); background:#1b2540; color:#e9f0ff;
-  padding:10px 12px; border-radius:10px; font-weight:800; cursor:pointer; pointer-events:auto;
-}
-button.btn-off{ opacity:.5; cursor:not-allowed }
-button.warn{ background:linear-gradient(180deg,#f59e0b,#d97706); border-color:#b45309 }
-
-/* ===== FX Layer ===== */
-#fxLayer{ position:fixed; inset:0; pointer-events:none; z-index:var(--z-fx); }
-
-/* ===== Anim helpers ===== */
-@keyframes settle{
-  0%{ transform: translate(0,0) scale(1) }
-  35%{ transform: translate(0,2px) scale(1.03) }
-  100%{ transform: translate(0,0) scale(1) }
+.ozTitle{
+  text-align:center;
+  font-weight:800;
 }
 
-/* ===== Secret Mark Board ===== */
-.markBoard{
-  border:1px solid var(--line); border-radius:5px; padding:5px; background:#0d1628;
-  display:grid; grid-template-columns:repeat(4,1fr); gap:5px;
+.ozSlot{
+  min-width:var(--cardW);
+  min-height:var(--cardH);
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
 }
+
+#openZone .card{
+  pointer-events:none;
+}
+
+/* =========================
+   12) SPRITE BUTTONS
+   ========================= */
+.spriteBtn{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  border:none;
+  background:transparent no-repeat center / 100% 100%;
+  cursor:pointer;
+  filter:drop-shadow(var(--shadowMd));
+  outline:none;
+  color:#161512;
+  font-family:'SVN-Arigena', sans-serif;
+  font-size:clamp(10px, 4cqw, 16px);
+  background-image:url("assets/ui/button.png");
+  transition:transform .08s ease;
+}
+
+.spriteBtn.btn-off{
+  background-image:url("assets/ui/button_off.png");
+  cursor:not-allowed;
+  pointer-events:none;
+  color:#bab9b8;
+}
+
+/* Nút X */
+.spriteBtn--x{
+  background-image:url("assets/ui/btn_close.png") !important;
+  width:clamp(30px, 5cqw, 48px);
+  height:clamp(40px, 5cqw, 48px);
+  background-size:contain;
+  background-repeat:no-repeat;
+  background-position:center;
+  padding:0;
+  border:none;
+  color:transparent !important;
+  font-size:0 !important;
+}
+
+.spriteBtn--x *{ display:none !important; }
+
+.spriteBtn--x:hover{ transform:scale(1.05); }
+.spriteBtn--x:active{ transform:scale(0.97); }
+.spriteBtn--x.is-pressed{ transform:translateY(4px) scale(.6); }
+
+/* Vị trí nút X */
+#guessClose{
+  position:absolute;
+  top:clamp(-6px, -0.5cqw, 0px);
+  right:clamp(12px, 4cqw, 28px);
+}
+
+#endBtnClose{
+  position:absolute;
+  top:clamp(8px, 1.5cqw, 16px);
+  right:clamp(8px, 1.5cqw, 16px);
+}
+
+/* Hover chung */
+.spriteBtn:hover{ transform:translateY(-2px); }
+.spriteBtn:active{ transform:translateY(0); }
+.spriteBtn.is-pressed{ transform:translateY(4px) scale(.6); }
+
+/* =========================
+   13) CONTROLS BAR (trong upperZones)
+   ========================= */
+.zone--controls{
+  position:relative;
+  z-index:var(--z-controls);
+  overflow:visible;
+  background:transparent;
+}
+
+.zone--controls .controlsPad{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:clamp(8px, 1.6cqw, 18px);
+  margin-bottom:-20px;
+  width:100%;
+  aspect-ratio:1080/150;
+  min-height:0;
+  padding:0;
+  background-image:url('assets/zones/controls.png');
+  background-repeat:no-repeat;
+  background-size:cover;
+  background-position:center bottom;
+  overflow:visible;
+}
+
+.zone--controls .controlsPad .spriteBtn{
+  transform-origin:center;
+  transition:transform .15s ease;
+}
+
+/* =========================
+   14) FOOTER MARK BOARD
+   ========================= */
+footer.zone--marks{
+  position:relative;
+  inset-inline:0;
+  bottom:0;
+  z-index:var(--z-controls);
+  width:100%;
+  max-width:100%;
+  margin:0 auto;
+  container-type:inline-size;
+  display:block;
+  background:transparent !important;
+  filter:drop-shadow(4px -4px 0 rgba(0,0,0,.7));
+  flex:0 0 auto;
+}
+
+footer.zone--marks .markPad{
+  width:100%;
+  padding:clamp(4px, 0.8cqw, 10px) 0 clamp(3px, 0.6cqw, 8px);
+  display:flex;
+  justify-content:center;
+  align-items:flex-end;
+}
+
+footer.zone--marks .markBoard{
+  position:relative;
+  width:100%;
+  aspect-ratio:var(--mb-ar);
+  height:auto;
+  container-type:size;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  grid-template-rows:repeat(4,1fr);
+  gap:0;
+  padding:clamp(8px, 2cqw, 24px);
+
+  --cellH:25cqh;
+  --cellPad:clamp(2px, 1.2cqh, 10px);
+  --badgeBox:clamp(14px, calc(var(--cellH) - 2*var(--cellPad)), 56px);
+  --badgeFont:calc(var(--badgeBox) * .72);
+  --markSize:clamp(16px, calc((var(--cellH) - 2*var(--cellPad)) * .75), 60px);
+}
+
 .mb-cell{
-  position:relative; background:#0b1220; border:1px solid #23314a; border-radius:5px;
-  aspect-ratio:2/1; display:grid; place-items:center;
+  position:relative;
+  padding:var(--cellPad);
+  border:1px solid #f0d08f;
+  display:grid;
+  place-items:center;
+  cursor:pointer;
 }
+
 .mb-badge{
-  position:absolute; top:6px; left:6px; width:26px; height:26px;
-  display:grid; place-items:center; font-weight:800; font-size:12px; color:#fff; border-radius:6px;
-}
-.mb-badge.g{background:#2a9a4a}
-.mb-badge.r{background:#EF4B3C}
-.mb-badge.y{background:#FFBD17; color:#1a1a1a}
-.mb-badge.k{background:#333}
-.mb-badge.empty{background:#1c2540;color:#9fb0cc}
-.mb-marks{ font-size:30px; font-weight:400; line-height:1; text-shadow:0 1px 1px rgba(0,0,0,.35) }
-.mark.green{color:#2d69ff}
-.mark.purple{color:#b46cff}
-.mark.white{color:#fff}
-.mb-cell:hover .mb-marks{ transform:scale(1.05); transition:transform .12s ease }
-
-/* ===== Responsive ===== */
-@media (max-width:420px){
-  :root{ --mb-gap:8px; --mb-badge-size:22px; --mb-font-size:24px }
+  position:absolute;
+  top:var(--cellPad);
+  left:var(--cellPad);
+  width:var(--badgeBox);
+  height:var(--badgeBox);
+  display:grid;
+  place-items:center;
+  font-weight:800;
+  font-size:var(--badgeFont);
+  color:#fff;
+  border-radius:2px;
+  line-height:1;
 }
 
-/* ===== Accessibility ===== */
-@media (prefers-reduced-motion:reduce){
-  .card{ transition:none }
-  .card:hover{ transform:none }
+.mb-badge.g{ background:#2a9a4a; }
+.mb-badge.r{ background:#EF4B3C; }
+.mb-badge.y{ background:#FFBD17; color:#1a1a1a; }
+.mb-badge.k{ background:#333; }
+.mb-badge.empty{ display:none; }
+
+.mb-marks{
+  font-size:var(--markSize);
+  font-weight:400;
+  line-height:1;
+  text-shadow:0 1px 1px rgba(0,0,0,.35);
+  user-select:none;
 }
 
-/* Ẩn tiêu đề các zone khi cần */
-.zone .title,.zoneTitle{ display:none !important }
-
-/* SplitFX overlay nền đen 50% */
-.splitfx-overlay{ background: rgba(0,0,0,.5) !important; }
-
-/* Dùng kích thước lá bài hiện hành cho SplitFX */
-:root{
-  --splitfx-cardW: var(--cardW);
-  --splitfx-cardH: var(--cardH);
+.mb-cell.played .mb-marks{
+  font-family:'PermanentMarker',cursive !important;
+  animation:mbPlayedWiggle .6s ease-in-out;
 }
 
+@keyframes mbPlayedWiggle{
+  0%   { transform:scale(0)   rotate(-10deg); }
+  20%  { transform:scale(2.0) rotate(8deg);   }
+  40%  { transform:scale(.8)  rotate(6deg);   }
+  60%  { transform:scale(1.5) rotate(-5deg);  }
+  80%  { transform:scale(1)   rotate(3deg);   }
+  100% { transform:scale(1)   rotate(0deg);   }
+}
+
+.mark{
+  font-family:'PermanentMarker',cursive !important;
+}
+
+.mark.green{  color:#2d69ff; }
+.mark.purple{ color:#e345ff; }
+
+/* Slash đỏ mới */
+.mark.slash{
+  color:rgb(255,94,94);
+}
+
+.mark.guess{
+  color:#fff;
+  font-weight:700;
+}
+
+/* Sprite cho mark trắng (lá open) */
+.mark.white{
+  display:inline-block;
+  width:25px;
+  height:25px;
+  background-image:url("assets/ui/death_icon.png");
+  background-size:contain;
+  background-repeat:no-repeat;
+  background-position:center;
+}
+
+.mark.white.just-appeared{
+  animation:mbWhiteWiggle .45s ease-in-out infinite;
+}
+
+@keyframes mbWhiteWiggle{
+  0%   { transform:rotate(0deg)   scale(1);    }
+  20%  { transform:rotate(-8deg)  scale(1.08); }
+  40%  { transform:rotate(8deg)   scale(1.08); }
+  60%  { transform:rotate(-5deg)  scale(1.08); }
+  80%  { transform:rotate(5deg)   scale(1.04); }
+  100% { transform:rotate(0deg)   scale(1);    }
+}
+
+.mb-cell:hover .mb-marks{
+  transform:scale(1.05);
+  transition:transform .12s ease;
+}
+
+/* Chừa chỗ cho footer mark board */
+#app{
+  padding-bottom:clamp(160px, 28vh, 560px);
+}
+
+/* =========================
+   15) PRELOAD OVERLAY
+   ========================= */
+#preloadOverlay{
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,.5);
+  opacity:0;
+}
+
+#preloadOverlay.show{
+  display:flex;
+  opacity:1;
+  transition:opacity .18s ease;
+}
+
+#preloadOverlay.show.fade{
+  opacity:0;
+}
+
+.preloadBox{
+  width:min(440px,92vw);
+  padding:18px;
+  border:1px solid #263247;
+  border-radius:12px;
+  background:linear-gradient(180deg,#16233f,#0e172b);
+  color:#e9f0ff;
+  box-shadow:0 10px 24px rgba(0,0,0,.35);
+  text-align:center;
+  font-weight:700;
+}
+
+.preloadTitle{
+  font-size:14px;
+  opacity:.9;
+  margin-bottom:10px;
+}
+
+.preloadTrack{
+  height:10px;
+  border-radius:999px;
+  overflow:hidden;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.15);
+}
+
+#preloadBar{
+  width:0%;
+  height:100%;
+  background:linear-gradient(90deg,#22c55e,#16a34a);
+  transition:width .15s ease;
+}
+
+#preloadText{
+  margin-top:8px;
+  font-size:12px;
+  opacity:.9;
+}
+
+/* =========================
+   16) LOBBY
+   ========================= */
+#lobby{
+  position:absolute;
+  inset:0;
+  z-index:10;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#f1d18f;
+  font-family:'SVN-Arigena',sans-serif;
+  text-align:center;
+  background:rgb(50,50,50) url('assets/zones/footer_bg.png') center / contain no-repeat !important;
+}
+
+.lobbyInner{
+  width:100%;
+  max-width:800px;
+  padding:16px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+
+.lobbyLogo{
+  aspect-ratio:853/795;
+  width:min(300px, 70cqw);
+  max-width:70cqw;
+  background:url('assets/ui/logo_game.png') center / contain no-repeat;
+}
+
+.lobbyPanel{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  width:clamp(260px,80cqw,720px);
+  height:auto;
+  padding:clamp(10px, 1.4cqw, 24px);
+}
+
+#lobbyStatus{
+  margin:8px auto 12px;
+  color:#f1d18f;
+  text-align:center;
+  font-family:'SVN-Arigena',sans-serif;
+  font-size:16px;
+  letter-spacing:2px;
+  max-width:80%;
+}
+
+.lobbyRoomRow{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  margin-bottom:10px;
+}
+
+.lobbyRoomLabel{
+  font-size:14px;
+  font-weight:800;
+  letter-spacing:.5px;
+}
+
+#roomCodeInput{
+  width:72px;
+  padding:6px 8px;
+  border-radius:6px;
+  border:1px solid rgba(255,255,255,.4);
+  background:rgba(15,23,42,.9);
+  color:#e9f0ff;
+  text-align:center;
+  font-family:'SVN-Arigena',sans-serif;
+  font-size:16px;
+  letter-spacing:2px;
+}
+
+#roomCodeInput::placeholder{
+  color:rgba(233,240,255,.45);
+}
+
+.lobbyBtns{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:12px;
+  margin-top:6px;
+}
+
+/* =========================
+   17) UPPERZONES & GUESS OVERLAY
+   ========================= */
+#upperZones{
+  position:relative;
+  width:100%;
+  aspect-ratio:1080/1080;
+  max-height:100%;
+  overflow:visible;
+  display:flex;
+  flex-direction:column;
+}
+
+#upperZones::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:10000;
+  background:rgba(0,0,0,.8);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .12s ease;
+}
+
+#upperZones:has(#guessOverlay.show)::before{
+  opacity:1;
+  pointer-events:auto;
+}
+
+#guessOverlay{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  z-index:10001;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:clamp(12px, 2cqw, 20px);
+  width:min(920px, 92cqw);
+  max-width:92cqw;
+  pointer-events:auto;
+}
+
+#guessOverlay.show{
+  display:flex;
+}
+
+.guessBox{
+  position:relative;
+  margin:0 auto;
+  color:#e9f0ff;
+  width:min(780px, 86cqw);
+  max-height:min(70vh, 1100px);
+  padding:clamp(12px, 1.6cqw, 18px);
+  background:transparent;
+  border:none;
+  box-shadow:none;
+}
+
+.guessGrid{
+  padding:12px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:flex-end;
+  justify-content:center;
+}
+
+.guessGrid .card{
+  width:var(--cardW);
+  height:var(--cardH);
+  border-radius:var(--cardCornerRadius);
+  position:relative;
+  flex:0 0 auto;
+  margin-left:calc(var(--cardW) * var(--cardOverlap));
+  outline:1px solid var(--stroke);
+  box-shadow:var(--shadowMd), 0 0 0 1px var(--innerStroke) inset;
+  transform-origin:bottom center;
+  transition:transform .15s ease, box-shadow .15s ease, border .15s ease, opacity .15s ease;
+  cursor:pointer;
+  user-select:none;
+}
+
+.guessGrid .card:first-child{
+  margin-left:0;
+}
+
+.guessGrid .card .face{
+  position:absolute;
+  inset:0;
+  border-radius:var(--cardCornerRadius);
+  background-position:center;
+  background-size:cover;
+  background-repeat:no-repeat;
+}
+
+.guessGrid .card:hover{
+  transform:translateY(var(--hoverRaise)) scale(1.03);
+}
+
+.guessGrid .card.selected{
+  transform:translateY(calc(-0.18 * var(--cardH))) rotate(-10deg) scale(1.18) !important;
+  z-index:10;
+  border:2px solid rgba(102,255,8,0.85);
+  box-shadow:6px 20px 0 -3px rgba(0,0,0,.5);
+}
+
+#guessBody.hidden,
+#guessResult.hidden{
+  display:none !important;
+}
+
+/* Khóa tương tác trong lúc Fan */
+.hand.fanning .card{
+  pointer-events:none;
+}
+
+.hand.fanning .card:hover{
+  transform:none !important;
+}
+
+/* Hand Arc */
+.hand[data-arc="1"] .card{
+  transform-origin:bottom center;
+  --rot:0deg;
+  --lift:0px;
+  transform:rotate(var(--rot)) translateY(var(--lift));
+}
+
+/* =========================
+   18) OPP HAND
+   ========================= */
+.zone--oppHand{
+  position:relative;
+  aspect-ratio:1080/220;
+  background:none !important;
+  overflow:hidden;
+}
+
+.zone--oppHand::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+}
+
+.zone--oppHand .zonePad{
+  position:relative;
+  z-index:1;
+  padding:8px 12px;
+  height:calc(var(--cardH)/2 + 20px);
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  overflow:hidden;
+}
+
+.oppHand{
+  min-height:var(--cardH);
+  height:var(--cardH); /* FIX: dùng cardH thay vì biến không tồn tại */
+  display:flex;
+  justify-content:center;
+  align-items:flex-start !important;
+  gap:6px;
+  overflow:visible;
+  z-index:calc(var(--z-controls)-2);
+}
+
+.oppHand .card{
+  pointer-events:none !important;
+  transition:none !important;
+  box-shadow:-8px -8px 0 rgba(0,0,0,.70) !important;
+}
+
+.oppHand .card:hover{
+  transform:none !important;
+  box-shadow:var(--shadowMd), 0 0 0 1px var(--innerStroke) inset !important;
+  border-color:var(--stroke) !important;
+}
+
+.oppHand .card.backOnly:first-child{
+  margin-left:0;
+}
+
+.card.backOnly{
+  width:var(--cardW);
+  height:var(--cardH);
+  border-radius:var(--cardCornerRadius);
+  position:relative;
+  flex:0 0 auto;
+  margin-left:calc(var(--cardW) * var(--cardOverlap));
+  transform-origin:bottom center;
+  outline:1px solid var(--stroke);
+  box-shadow:var(--shadowMd), 0 0 0 1px var(--innerStroke) inset;
+  cursor:default;
+  user-select:none;
+}
+
+.card.backOnly .back{
+  position:absolute;
+  inset:0;
+  border-radius:var(--cardCornerRadius);
+  background:url('assets/cards/back.png') center / cover no-repeat;
+  transform:none !important;
+  backface-visibility:visible !important;
+}
+
+.oppHand[data-arc="1"] .card{
+  transform-origin:center center;
+  --rot:0deg;
+  --lift:0px;
+  --oppLiftScale:.75;
+  transform:rotate(180deg) rotate(calc(var(--rot)*-1)) translateY(calc(var(--lift) * var(--oppLiftScale)));
+}
+
+/* =========================
+   19) SPRITE NỀN HAND & OPPHAND
+   ========================= */
+.zone--hand{
+  position:relative;
+  background:none;
+  overflow:visible !important;
+  background-image:url('assets/zones/hand_zone.png');
+  background-repeat:no-repeat;
+  background-size:cover;
+  background-position:center center;
+}
+
+.zone--hand::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+}
+
+.zone--hand .zonePad{
+  position:relative;
+  z-index:1;
+  align-content:center;
+}
+
+/* =========================
+   20) RESULT OVERLAY
+   ========================= */
+/* Result overlay – bình thường (không grayscale) */
+#resultOverlay{
+  position:absolute;
+  inset:0;
+  z-index:10002;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,.8);
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+
+#resultOverlay.show{
+  display:flex;
+}
+
+/* Chỉ khi NGƯỜI CHƠI NÀY THUA mới grayscale background phía sau */
+#resultOverlay.is-loser{
+  backdrop-filter:grayscale(1);
+  -webkit-backdrop-filter:grayscale(1);
+}
+
+#resultOverlay #endHiddenCard{
+  pointer-events:none;
+  cursor:default;
+}
+
+#resultOverlay #endHiddenCard:hover{
+  transform:none !important;
+}
+
+.card.no-interact,
+.card.no-interact:hover{
+  pointer-events:none;
+  cursor:default;
+}
+
+.banner{
+  width:clamp(200px, 30cqw, 450px);
+  aspect-ratio:450/660;
+  background:center / contain no-repeat;
+  image-rendering:auto;
+  transform:scale(.9);
+  opacity:0;
+  animation:banner-pop .5s var(--ease) forwards;
+}
+
+.banner.result.victory{ background-image:url('assets/ui/victory.png'); }
+.banner.result.defeat { background-image:url('assets/ui/defeat.png'); }
+
+.resultBox{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:18px;
+}
+
+.resultActions{
+  display:flex;
+  gap:16px;
+  justify-content:center;
+  align-items:center;
+}
+
+@keyframes banner-pop{
+  from{ transform:scale(.6); opacity:0; filter:blur(2px); }
+  to  { transform:scale(1);  opacity:1; filter:blur(0);   }
+}
+
+/* =========================
+   21) VICTIM OVERLAY (Nạn nhân / cOpen)
+   ========================= */
+#victimOverlay{
+  position:absolute;
+  inset:0;
+  z-index:calc(var(--z-controls)-1);
+  width:100%;
+  height:100%;
+  top:45%;
+  left:50%;
+  transform:translate(-50%,-55%);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,.9);
+}
+
+#victimOverlay.show{
+  display:flex;
+}
+
+.victimHeader{
+  text-align:center;
+}
+
+.victimLabel{
+  font-family:'SVN-Arigena',sans-serif;
+  font-size:20px;
+  font-weight:800;
+  letter-spacing:.5px;
+  margin-bottom:10px;
+  color:#f1d18f;
+}
+
+.victimCardSlot{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  margin:4px 0 8px;
+}
+
+/* Victim card + split effect */
+#victimCard{
+  position:relative;
+  width:calc(var(--cardW)*2);
+  height:calc(var(--cardH)*2);
+  margin:0 auto;
+  border-radius:0 !important;
+  box-shadow:none !important;
+  background:none !important;
+  overflow:visible !important;
+  animation:victimCard-pop .5s var(--ease) forwards;
+}
+
+#victimCard.card{
+  border:none !important;
+  outline:none !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+
+#victimCard .face{
+  display:none !important;
+}
+
+@keyframes victimCard-pop{
+  from{ transform:scale(.2); opacity:0; filter:blur(2px); }
+  to  { transform:scale(1);  opacity:1; filter:blur(0);   }
+}
+
+/* 2 nửa card */
+.split-half{
+  position:absolute;
+  inset:0;
+  background-size:cover;
+  background-position:center;
+  will-change:transform;
+  transition:transform 260ms cubic-bezier(.30,0,.00,1.05);
+}
+
+.half-left{
+  border-radius:4px;
+  translate:0 10px;
+  clip-path:polygon(
+    0% 0%,
+    100% 0%,
+    100% 35%,
+    0% 65%
+  );
+  rotate:-10deg;
+}
+
+.half-right{
+  border-radius:4px;
+  clip-path:polygon(
+    0% 65%,
+    100% 35%,
+    100% 100%,
+    0% 100%
+  );
+  rotate:15deg;
+  z-index:6;
+}
+
+#victimCard.separated .half-left{
+  transform:translate(-14px, -8px) rotate(-6deg);
+}
+
+#victimCard.separated .half-right{
+  transform:translate(14px, 8px) rotate(6deg);
+}
+
+/* Máu */
+#victimBlood{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:150%;
+  height:150%;
+  transform:translate(-50%, -50%) scale(0.9);
+  background-image:url("assets/ui/blood.png");
+  background-size:contain;
+  background-repeat:no-repeat;
+  background-position:center;
+  opacity:0;
+  pointer-events:none;
+  z-index:5;
+}
+
+/* Blood tràn to */
+#victimCard::after{
+  content:"";
+  position:absolute;
+  top:-120%;
+  left:-150%;
+  width:400%;
+  height:400%;
+  background:url("assets/ui/blood.png") center/contain no-repeat;
+  pointer-events:none;
+  z-index:5;
+}
+
+.victimActions{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:12px;
+  margin-top:4px;
+}
+
+/* =========================
+   22) NỀN PLAYFIELD
+   ========================= */
+.playfield{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  background:url('assets/zones/my_turn_bg.png') top center/ cover no-repeat;
+}
+
+.pile,
+.stage{
+  background:transparent;
+}
+
+/* =========================
+   23) COMPARE OVERLAY
+   ========================= */
+#compareOverlay{
+  position:absolute;
+  inset:0;
+  z-index:10002;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,.8);
+}
+
+#compareOverlay.show{
+  display:flex;
+}
+
+.compareBox{
+  width:min(760px, 92vw);
+  padding:16px;
+  border-radius:12px;
+  background:transparent;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  align-items:center;
+  color:#e9f0ff;
+}
+
+.compareCards{
+  display:flex;
+  flex-direction:column-reverse;
+  gap:16px;
+  align-items:center;
+  justify-content:center;
+}
+
+.compareCardSlot{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  align-items:center;
+}
+
+.compareCardSlot .card{
+  width:var(--cardW);
+  height:var(--cardH);
+}
+
+#compareHiddenCard{
+  width:calc(var(--cardW) * 2.5);
+  height:calc(var(--cardH) * 2.5);
+}
+
+#compareGuessCard{
+  width:var(--cardW);
+  height:var(--cardH);
+}
+
+.compareLabel{
+  font-family:'SVN-Arigena',sans-serif;
+  font-weight:800;
+  letter-spacing:.5px;
+  font-size:14px;
+}
+
+#compareOverlay .card.no-interact,
+#compareOverlay .card.no-interact:hover{
+  pointer-events:none;
+  cursor:default;
+}
+
+/* Ưu tiên thứ tự trong upperZones */
+#upperZones .zone--pile,
+#upperZones .zone--stage,
+#upperZones .zone--open,
+#upperZones .zone--turn{
+  order:0;
+}
+
+/* Hand ngay trên controls */
+#upperZones .zone--hand{
+  order:10;
+  margin-top:auto;
+}
+
+/* Controls thấp nhất */
+#upperZones .zone--controls{
+  order:11;
+}
+
+/* Khi người chơi thua → làm mờ xám toàn bộ playfield sau resultOverlay */
+#app.i-lost .upperZones,
+#app.i-lost .footerZones{
+  filter:grayscale(.5) brightness(.3);
+  transition:filter .25s ease-out;
+}
