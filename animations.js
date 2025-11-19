@@ -1,224 +1,265 @@
-// ===== Animation helpers (FLIP + Flip3D) — luôn bay trên các zone khi đổi zone =====
-const EASE = 'cubic-bezier(.43,.28,0,1.19)';
+// ===== animations.js (IIFE, expose flyFLIP & flip3D, debug off) =====
+(() => {
+  'use strict';
 
-function rectCenter(el) {
-  const r = el.getBoundingClientRect();
-  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-}
+  const EASE = 'cubic-bezier(.43,.28,0,1.19)';
+  const $ = (sel, root = document) => root.querySelector(sel);
 
-function makeSpacerLike(el) {
-  const s = document.createElement('div');
-  const cs = getComputedStyle(el);
-  s.style.width = cs.width;
-  s.style.height = cs.height;
-  s.style.flex = cs.flex || '0 0 auto';
-  s.style.margin = cs.margin;
-  return s;
-}
+  // ---- rect helpers ----
+  function rectCenter(el) {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
 
-// Tạo/lấy lớp hiệu ứng luôn nằm trên mọi zone (trên OpenZone/Hand/Stage/Pile, dưới Controls)
-function getFxLayer() {
-  let layer = document.getElementById('fxLayer');
-  if (!layer) {
-    layer = document.createElement('div');
-    layer.id = 'fxLayer';
+  // ---- spacer (layout holder) ----
+  function makeSpacerLike(el) {
+    const s = document.createElement('div');
+    s.className = 'fx-spacer';
+    const cs = getComputedStyle(el);
+    s.style.width  = cs.width;
+    s.style.height = cs.height;
+    s.style.flex   = cs.flex || '0 0 auto';
+    s.style.margin = cs.margin;
+    s.style.padding = '0';
+    s.style.border = '0';
+    s.style.background = 'transparent';
+    return s;
+  }
+
+  function removeSpacer2Frames(spacer) {
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      try { spacer.remove(); } catch {}
+    }));
+    setTimeout(() => { if (spacer?.isConnected) spacer.remove(); }, 600);
+  }
+
+  // ---- FX layer (normalize styles) ----
+  function getFxLayer() {
+    const host = document.getElementById('viewport') || document.body;
+    let layer = document.getElementById('fxLayer');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'fxLayer';
+      host.appendChild(layer);
+    } else if (layer.parentElement !== host) {
+      host.appendChild(layer);
+    }
+
+    const cssZ = getComputedStyle(document.documentElement).getPropertyValue('--z-fx').trim();
+    const zIndex = cssZ || '9500';
     layer.style.position = 'fixed';
     layer.style.inset = '0';
     layer.style.pointerEvents = 'none';
-    layer.style.zIndex = '9000'; // dưới Controls (9999), trên mọi zone
-    document.body.appendChild(layer);
-  }
-  return layer;
-}
-
-// Clone bay trong layer trên cùng (đảm bảo không bị “lọt dưới” Hand/OpenZone)
-async function flyOverLayer(fromEl, toContainer, { duration = 680 } = {}) {
-  // Nếu thẻ chưa trong DOM → gắn thẳng
-  if (!fromEl.isConnected || !fromEl.parentNode) {
-    toContainer.appendChild(fromEl);
-    return;
+    layer.style.zIndex = zIndex;
+    layer.style.transform = 'none';
+    layer.style.contain = 'layout paint';
+    return layer;
   }
 
-  const spacer = makeSpacerLike(fromEl);
-  fromEl.parentNode.insertBefore(spacer, fromEl);
+  // ---- zone helpers ----
+  function zoneIdOf(el) {
+    if (!el) return '';
+    return el.closest('.hand') ? 'hand'
+      : el.closest('.stage') ? 'stage'
+      : el.closest('.pile') ? 'pile'
+      : el.closest('.openZone') ? 'open'
+      : '';
+  }
 
-  const startRect = fromEl.getBoundingClientRect();
-  const tmpSlot = makeSpacerLike(fromEl);
-  toContainer.appendChild(tmpSlot);
-  const endRect = tmpSlot.getBoundingClientRect();
+  function isCrossZone(fromEl, toContainer) {
+    const fromId = zoneIdOf(fromEl);
+    const toId = (toContainer && toContainer.id) || '';
+    return fromId && toId && fromId !== toId;
+  }
 
-  const fx = getFxLayer();
-  const clone = fromEl.cloneNode(true);
-  fromEl.style.visibility = 'hidden';
-
-  clone.style.position = 'fixed';
-  clone.style.left = `${startRect.left}px`;
-  clone.style.top = `${startRect.top}px`;
-  clone.style.margin = '0';
-  clone.style.transform = 'translate(0,0) scale(1)';
-  clone.style.willChange = 'transform';
-  clone.style.zIndex = '1';
-  fx.appendChild(clone);
-
-  const dx = endRect.left - startRect.left;
-  const dy = endRect.top - startRect.top;
-
-  const anim = clone.animate(
-    [
-      { transform: `translate(0px, 0px) rotate(0deg) scale(1)` },
-      { transform: `translate(${dx * 0.9}px, ${dy * 0.9}px) rotate(6deg) scale(1.15)`, offset: 0.65 },
-      { transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(1.0)` }
-    ],
-    { duration, easing: EASE, fill: 'forwards' }
-  );
-
-  await anim.finished;
-
-  toContainer.appendChild(fromEl);
-  fromEl.style.visibility = '';
-  clone.remove();
-  tmpSlot.remove();
-  spacer.remove();
-
-  fromEl.style.animation = 'settle .25s ease';
-  setTimeout(() => { if (fromEl) fromEl.style.animation = ''; }, 260);
-}
-
-// Xác định zone gốc
-function zoneIdOf(el) {
-  if (!el) return '';
-  return el.closest('.hand') ? 'hand'
-    : el.closest('.stage') ? 'stage'
-    : el.closest('.pile') ? 'pile'
-    : el.closest('.openZone') ? 'open'
-    : '';
-}
-
-// Nếu di chuyển giữa HAI zone khác nhau → bay qua fxLayer
-function isCrossZone(fromEl, toContainer) {
-  const fromId = zoneIdOf(fromEl);
-  const toId = (toContainer && toContainer.id) || '';
-  return fromId && toId && fromId !== toId;
-}
-
-// Move with FLIP (mặc định). Nếu khác zone → dùng layer. An toàn khi thẻ chưa có parent.
-async function flyFLIP(cardEl, toContainer, { duration = 680 } = {}) {
-  if (!cardEl || !toContainer) return;
-
-  // Chuyến bay giữa các zone khác nhau → bay qua overlay (luôn trên các zone)
-  if (isCrossZone(cardEl, toContainer)) {
-    if (!cardEl.isConnected || !cardEl.parentNode) {
-      toContainer.appendChild(cardEl);
+    // ---- overlay flight (cross-zone, tilt + condense hooks) ----
+  async function flyOverLayer(fromEl, toContainer, { duration = 340 } = {}) {
+    if (!fromEl || !toContainer) return;
+    if (!fromEl.isConnected || !fromEl.parentNode) {
+      toContainer.appendChild(fromEl);
       return;
     }
-    await flyOverLayer(cardEl, toContainer, { duration });
-    return;
+
+    const parent  = fromEl.parentNode;
+    const spacer  = makeSpacerLike(fromEl);
+    parent.insertBefore(spacer, fromEl);
+
+    // 🔹 Khi placeholder VỪA xuất hiện trong hand → wiggle nhẹ
+    if (window.Condense && parent.classList.contains('hand')) {
+      try { window.Condense.placeholderIn(parent, spacer); } catch {}
+    }
+
+    const startRect = fromEl.getBoundingClientRect();
+    const tmpSlot   = makeSpacerLike(fromEl);
+    tmpSlot.style.visibility = 'hidden';
+    toContainer.appendChild(tmpSlot);
+    const endRect = tmpSlot.getBoundingClientRect();
+
+    const fx = getFxLayer();
+    const clone = fromEl.cloneNode(true);
+    fromEl.style.visibility = 'hidden';
+    Object.assign(clone.style, {
+      position: 'fixed',
+      left: `${startRect.left}px`,
+      top: `${startRect.top}px`,
+      margin: '0',
+      transform: 'translate(0,0) scale(1)',
+      willChange: 'transform',
+      zIndex: '1',
+      boxShadow: 'var(--shadowMd, 8px 8px 0 rgba(0,0,0,.50))'
+    });
+    fx.appendChild(clone);
+
+    const dx = endRect.left - startRect.left;
+    const dy = endRect.top  - startRect.top;
+
+    // Góc nghiêng nhẹ theo hướng bay
+    const baseTilt = 20; // có thể tune
+    let tilt;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      tilt = dx >= 0 ? baseTilt : -baseTilt;
+    } else {
+      tilt = dy >= 0 ? baseTilt : -baseTilt;
+    }
+
+    const anim = clone.animate(
+      [
+        { transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1 },
+        {
+          transform: `translate(${dx * 0.6}px,${dy * 0.6}px) scale(1.03) rotate(${tilt}deg)`,
+          opacity: 0.98,
+          offset: 0.55
+        },
+        {
+          transform: `translate(${dx}px,${dy}px) scale(1) rotate(0deg)`,
+          opacity: 0.95
+        }
+      ],
+      {
+        duration,
+        easing: 'cubic-bezier(.30,0,.20,1)',
+        fill: 'forwards'
+      }
+    );
+    await anim.finished;
+
+    toContainer.appendChild(fromEl);
+    fromEl.style.visibility = '';
+    clone.remove();
+    tmpSlot.remove();
+
+    // 🔹 Khi placeholder BIẾN MẤT trong hand → condense mạnh
+    if (window.Condense && parent.classList.contains('hand')) {
+      try {
+        window.Condense.placeholderOut(parent, spacer);
+      } catch {
+        // fallback nếu có lỗi
+        removeSpacer2Frames(spacer);
+      }
+    } else {
+      removeSpacer2Frames(spacer);
+    }
+
+    fromEl.style.animation = 'settle .25s ease';
+    setTimeout(() => { if (fromEl) fromEl.style.animation = ''; }, 130);
   }
 
-  // Cùng zone:
-  if (cardEl.parentElement === toContainer) return;
+  // ---- FLIP in-zone ----
+  async function flyFLIP(cardEl, toContainer, { duration = 260 } = {}) {
+    if (!cardEl || !toContainer) return;
 
-  if (!cardEl.isConnected || !cardEl.parentNode) {
-    toContainer.appendChild(cardEl);
-    return;
-  }
+    // Cross-zone → dùng overlay flight (đã gắn condense ở trên)
+    if (isCrossZone(cardEl, toContainer)) {
+      if (!cardEl.isConnected || !cardEl.parentNode) {
+        toContainer.appendChild(cardEl);
+        return;
+      }
+      await flyOverLayer(cardEl, toContainer, { duration });
+      return;
+    }
 
-  const parent = cardEl.parentNode;
-  const spacer = makeSpacerLike(cardEl);
+    // Cùng zone nhưng khác container → FLIP thường
+    if (cardEl.parentElement === toContainer) return;
 
-  try {
+    const parent = cardEl.parentNode;
+    const spacer = makeSpacerLike(cardEl);
     parent.insertBefore(spacer, cardEl);
-  } catch {
+
+    const first = rectCenter(cardEl);
     toContainer.appendChild(cardEl);
-    return;
+    await new Promise(r => requestAnimationFrame(()=>r()));
+    const last = rectCenter(cardEl);
+    const dx = first.x - last.x;
+    const dy = first.y - last.y;
+
+    cardEl.style.willChange = 'transform, box-shadow';
+    cardEl.style.zIndex = '5';
+    cardEl.style.transform = `translate(${dx}px, ${dy}px)`;
+    cardEl.getBoundingClientRect();
+
+    const anim = cardEl.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(1)` },
+        { transform: `translate(${dx * 0.1}px, ${dy * 0.1}px) scale(1.15)`, offset: 0.65 },
+        { transform: 'translate(0,0) scale(1.0)' }
+      ],
+      { duration, easing: EASE, fill: 'forwards' }
+    );
+    await anim.finished;
+
+    cardEl.style.transform = '';
+    cardEl.style.willChange = '';
+    cardEl.style.zIndex = '';
+    removeSpacer2Frames(spacer);
+    cardEl.style.animation = 'settle .25s ease';
+    setTimeout(() => { cardEl.style.animation = ''; }, 260);
   }
 
-  const first = rectCenter(cardEl);
-  toContainer.appendChild(cardEl);
-  const last = rectCenter(cardEl);
-  const dx = first.x - last.x;
-  const dy = first.y - last.y;
+  // ---- 3D flip (transition-based, đơn giản, hợp browser cũ) ----
+  async function flip3D(card, { duration = 1200 } = {}) {
+    if (!card) return;
 
-  cardEl.style.willChange = 'transform, box-shadow';
-  cardEl.style.zIndex = 5001;
-  cardEl.style.transform = `translate(${dx}px, ${dy}px)`;
-  cardEl.getBoundingClientRect(); // force layout
+    const wasFaceDown = card.classList.contains('facedown');
+    const startDeg = wasFaceDown ? 180 : 0;
+    const endDeg   = wasFaceDown ? 0   : 180;
 
-  const anim = cardEl.animate(
-    [
-      { transform: `translate(${dx}px, ${dy}px) rotate(0deg) scale(1)` },
-      { transform: `translate(${dx * 0.1}px, ${dy * 0.1}px) rotate(6deg) scale(1.15)`, offset: 0.65 },
-      { transform: 'translate(0,0) rotate(0deg) scale(1.0)' }
-    ],
-    { duration, easing: EASE, fill: 'forwards' }
-  );
+    card.style.willChange = 'transform';
+    card.style.transition = 'none';
 
-  await anim.finished;
+    // Set vị trí bắt đầu
+    card.style.transform = `rotateY(${startDeg}deg)`;
+    card.getBoundingClientRect(); // force reflow
 
-  cardEl.style.transform = '';
-  cardEl.style.willChange = '';
-  cardEl.style.zIndex = '';
-  spacer.remove();
+    // Áp transition
+    card.style.transition = `transform ${duration}ms cubic-bezier(.33,0,.33,1)`;
 
-  cardEl.style.animation = 'settle .25s ease';
-  setTimeout(() => { cardEl.style.animation = ''; }, 260);
-}
+    // Kick animation frame sau
+    requestAnimationFrame(() => {
+      card.style.transform = `rotateY(${endDeg}deg)`;
+    });
 
-// ===== Fixed flip3D for facedown -> face-up order =====
-async function flip3D(card, { duration = 420 } = {}) {
-  const front = card.querySelector('.front');
-  const back  = card.querySelector('.back');
+    // Chờ animation xong
+    await new Promise(resolve => {
+      setTimeout(() => {
+        card.style.transition = '';
+        card.style.willChange = '';
 
-  // nhỏ delay để chắc chắn DOM đã ổn định
-  await new Promise(r => setTimeout(r, 60));
+        if (wasFaceDown) {
+          card.classList.remove('facedown'); // mở ra
+        } else {
+          card.classList.add('facedown');    // úp lại
+        }
 
-  const wasFaceDown = card.classList.contains('facedown');
+        card.style.transform = 'rotateY(0deg)';
+        resolve();
+      }, duration + 40);
+    });
 
-  if (wasFaceDown) {
-    // ĐANG ÚP: bắt đầu từ 180deg (đang thấy "mặt ?"), lật 180→360.
-    // Ở nửa đường (270deg) thì bỏ .facedown để sau khi kết thúc về 0deg sẽ thấy mặt số.
-    const anim = card.animate(
-      [
-        { transform: 'rotateY(180deg)' },
-        { transform: 'rotateY(270deg)', offset: 0.5 },
-        { transform: 'rotateY(360deg)' }
-      ],
-      { duration, easing: 'cubic-bezier(.33,0,.33,1)', fill: 'forwards' }
-    );
-
-    // Gỡ facedown đúng lúc "qua lưng"
-    setTimeout(() => {
-      card.classList.remove('facedown');
-    }, duration * 0.5);
-
-    await anim.finished;
-    // Chuẩn hóa transform về 0 để tránh tích lũy
-    card.style.transform = 'rotateY(0)';
-  } else {
-    // KHÔNG ÚP: lật 0→180 và (tùy bài) có thể swap nội dung (nếu bạn cần)
-    const anim = card.animate(
-      [
-        { transform: 'rotateY(0deg)' },
-        { transform: 'rotateY(90deg)', offset: 0.5 },
-        { transform: 'rotateY(180deg)' }
-      ],
-      { duration, easing: 'cubic-bezier(.33,0,.33,1)', fill: 'forwards' }
-    );
-
-    // Với bài không úp, nếu muốn swap nội dung 2 mặt ở giữa flip:
-    setTimeout(() => {
-      // Hiện tại game dùng số ở mặt trước cố định, nên có thể bỏ qua swap.
-      // Nếu cần swap: 
-      // const ftxt = front.textContent;
-      // front.textContent = back.textContent;
-      // back.textContent  = ftxt;
-    }, duration * 0.5);
-
-    await anim.finished;
-    card.style.transform = 'rotateY(0)';
+    // “settle” nhẹ
+    card.style.animation = 'settle .25s ease';
+    setTimeout(() => { card.style.animation = ''; }, 130);
   }
 
-  // settle nhún nhẹ
-  card.style.animation = 'settle .25s ease';
-  setTimeout(() => { card.style.animation = ''; }, 260);
-}
+  window.flyFLIP = flyFLIP;
+  window.flip3D = flip3D;
+})();
