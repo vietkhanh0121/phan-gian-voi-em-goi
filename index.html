@@ -2,79 +2,305 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Card Feel – P2P (Host Broadcast State)</title>
-  <base href="./">
-  <link rel="manifest" href="manifest.json">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Card Feel">
-  <link rel="apple-touch-icon" href="assets/icons/icon-512.png">
-  <link rel="stylesheet" href="styles.css">
-<script>eruda.init();</script>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:,">
+
+  <!-- Preload mặt sau lá để tránh chớp khi lật -->
+  <link rel="preload" href="assets/cards/back.png" as="image" />
+
+  <meta name="theme-color" content="#0b1220" />
 </head>
 <body>
+  <!-- #gameWrapper chiếm toàn màn hình (viền đen),
+       #viewport giữ đúng tỉ lệ 1080:2100 và chứa toàn bộ game. -->
+  <div id="gameWrapper">
+    <div id="viewport">
+      <!-- ===== Lobby ===== -->
+      <div id="lobby">
+        <div class="lobbyInner">
+          <!-- Logo game (sprite), chỉ trang trí -->
+          <div class="lobbyLogo" aria-hidden="true"></div>
 
-  <noscript>
-    <div style="padding:12px; background:#260000; color:#fff; font-weight:700;">
-      Trò chơi cần bật JavaScript để hoạt động.
-    </div>
-  </noscript>
+          <div class="lobbyPanel">
+            <!-- Tiêu đề ẩn cho screen reader (layout dùng logo/sprite) -->
+            <h1 class="vh">Trò chơi thẻ bài</h1>
 
-  <!-- ===== Lobby ===== -->
-  <section id="lobby" class="lobby">
-    <div class="lobbyCard">
-      <h1>Card Feel – Kết nối P2P - Xem có bật ra trình duyệt không</h1>
-      <p id="lobbyStatus" class="muted">Đang khởi tạo…</p>
-      <div class="lobbyBtns">
-        <button id="btnCreate" class="primary">Tạo phòng</button>
-        <button id="btnJoin" class="secondary">Vào phòng</button>
+            <div id="lobbyStatus">Sẵn sàng kết nối.</div>
+
+            <!-- Hàng nhập mã phòng -->
+            <div class="lobbyRoomRow">
+              <span class="lobbyRoomLabel">Mã phòng</span>
+              <input
+                id="roomCodeInput"
+                type="text"
+                maxlength="2"
+                placeholder="--"
+                autocomplete="off"
+                inputmode="numeric"
+                aria-label="Mã phòng (2 chữ số)"
+              />
+            </div>
+
+            <!-- Nút Create / Join (dùng sprite button.png + text) -->
+            <div class="lobbyBtns">
+              <button
+                id="btnCreate"
+                class="spriteBtn btn--create"
+                type="button"
+                aria-label="Tạo phòng"
+              >
+                Tạo phòng
+              </button>
+              <button
+                id="btnJoin"
+                class="spriteBtn btn--join"
+                type="button"
+                aria-label="Vào phòng"
+              >
+                Vào phòng
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-<p class="muted small">PeerServer: <code>cardfeel-sio-relay.onrender.com</code>, path <code>/pg</code>.</p>
-    </div>
-  </section>
 
-  <!-- ===== App ===== -->
-  <main id="app" class="invisible" aria-live="polite">
-    <header class="appHeader zone" role="banner">
-      <span id="roomTag" class="tag">Phòng: --</span>
-      <strong id="turnHint" class="turn turn--end">Host authoritative</strong>
-      <span id="roleTag" class="tag">Vai: --</span>
-    </header>
+      <!-- ===== App ===== -->
+      <main id="app" class="invisible" aria-live="polite">
+        <!-- upperZones là playfield chính có nền chung -->
+        <section id="upperZones" class="playfield" aria-label="Khu chơi chính">
+          <!-- Header -->
+          <header class="appHeader zone--appHeader" aria-label="Header">
+            <div class="zonePad">
+              <span id="roomTag" class="tag">Phòng: --</span>
+              <div id="oppHand" class="oppHand" aria-live="polite"></div>
 
-    <section class="zone">
-      <div id="pile" class="pile" aria-label="Bài mở (Pile)"></div>
-    </section>
+              <!--
+              <span class="tag"><strong id="roleTag">--</strong></span>
+              -->
+              <button
+                id="btnNew"
+                class="spriteBtn btn--new"
+                type="button"
+                aria-label="Ván mới"
+              >
+                Ván mới
+              </button>
+            </div>
+          </header>
 
-    <section id="openZone" class="zone openZone" aria-label="Khu C (OpenZone)">
-      <div class="ozGrid">
-        <div class="ozTitle">Lá bài mở</div>
-        <div id="ozOpen" class="ozSlot" aria-label="Lá bài mở chung"></div>
-        <div id="ozHidden" class="ozSlot" aria-label="Lá bài bí ẩn"></div>
-        <button id="btnReveal" class="ozReveal" aria-label="Mở lá bài bí ẩn">Mở lá bài bí ẩn</button>
+          <!-- Pile -->
+          <section class="zone zone--pile" aria-label="Bài mở (Pile)">
+            <div class="zonePad">
+              <div id="pile" class="pile"></div>
+            </div>
+          </section>
+
+          <!-- Turn hint (status bar) -->
+          <section id="turnZone" class="zone zone--turn" aria-label="Turn">
+            <div class="zonePad">
+              <strong id="turnHint" class="turn turn--my">Tới lượt bạn</strong>
+            </div>
+          </section>
+
+          <!-- Stage -->
+          <section class="zone zone--stage" aria-label="Trước mặt (Stage)">
+            <div class="zonePad">
+              <div id="stage" class="stage"></div>
+            </div>
+          </section>
+
+          <!-- Hand -->
+          <section class="zone zone--hand" aria-label="Tay bài (Hand)">
+            <div class="zonePad">
+              <div id="hand" class="hand"></div>
+            </div>
+          </section>
+
+          <!-- ===== Controls (trong upperZones, không còn footer) ===== -->
+          <section class="zone zone--controls" aria-label="Điều khiển">
+            <div class="controlsPad">
+              <button
+                id="btnPlay"
+                class="spriteBtn btn--play"
+                type="button"
+                aria-label="Đánh"
+              >
+                Đánh
+              </button>
+              <button
+                id="btnEnd"
+                class="spriteBtn btn--end"
+                type="button"
+                aria-label="Kết thúc lượt"
+              >
+                Kết thúc
+              </button>
+              <button
+                id="btnGuess"
+                class="spriteBtn btn--guess"
+                type="button"
+                aria-label="Đoán hung thủ"
+              >
+                Đoán
+              </button>
+            </div>
+          </section>
+
+          <!-- ===== VICTIM OVERLAY (Nạn nhân / cOpen) ===== -->
+          <div id="victimOverlay" aria-hidden="true">
+            <div class="victimBox">
+              <div class="victimHeader">
+                <div class="victimLabel">Nạn nhân</div>
+              </div>
+              <div class="victimCardSlot">
+                <div id="victimCard" class="card no-interact">
+                  <div class="face front"></div>
+                  <div class="face back"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== Guess Overlay (center theo upperZones bằng CSS) ===== -->
+          <div
+            id="guessOverlay"
+            aria-hidden="true"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="guessTitle"
+          >
+            <div class="guessBox">
+              <!-- X close = sprite + text -->
+              <button
+                id="guessClose"
+                class="spriteBtn spriteBtn--x"
+                type="button"
+                aria-label="Đóng"
+              >
+                ×
+              </button>
+
+              <div class="guessHeader">
+                <h3 id="guessTitle" class="ozTitle" style="margin:6px 0 10px;">
+                  Hung thủ là…
+                </h3>
+              </div>
+
+              <div id="guessBody">
+                <div id="guessList" class="guessGrid" aria-live="polite"></div>
+                <div class="guessActions">
+                  <button
+                    id="btnGuessCancel"
+                    class="spriteBtn btn--cancel"
+                    type="button"
+                    aria-label="Hủy"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    id="btnGuessConfirm"
+                    class="spriteBtn btn--choose btn-off"
+                    type="button"
+                    aria-disabled="true"
+                    disabled
+                  >
+                    Chọn
+                  </button>
+                </div>
+              </div>
+
+              <div id="guessResult" class="guessResult hidden" aria-live="polite">
+                <div class="guessResultText" id="guessResultText"></div>
+                <div class="guessActions">
+                  <button
+                    id="btnGuessNew"
+                    class="spriteBtn btn--new"
+                    type="button"
+                    aria-label="Ván mới"
+                  >
+                    Ván mới
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- ===== /Guess Overlay ===== -->
+        </section>
+        <!-- /#upperZones -->
+
+        <!-- ===== Footer: chỉ còn Mark Board ===== -->
+        <footer class="zone zone--marks" aria-label="Bảng đánh dấu">
+          <div class="markPad" aria-label="Bảng đánh dấu">
+            <div id="markBoard" class="markBoard"><!-- Marks.init() sẽ fill --></div>
+          </div>
+        </footer>
+      </main>
+
+      <!-- ===== Compare Overlay: Guess vs Hidden ===== -->
+      <div id="compareOverlay" aria-hidden="true">
+        <div class="compareBox">
+          <div class="compareCards">
+            <div class="compareCardSlot">
+              <div id="compareGuessCard" class="card no-interact">
+                <div class="face front"></div>
+                <div class="face back"></div>
+              </div>
+              <div class="compareLabel">Dự đoán</div>
+            </div>
+            <div class="compareCardSlot">
+              <div id="compareHiddenCard" class="card facedown no-interact">
+                <div class="face front"></div>
+                <div class="face back"></div>
+              </div>
+              <div class="compareLabel">Hung thủ là</div>
+            </div>
+          </div>
+        </div>
       </div>
-    </section>
 
-    <section class="zone">
-      <div id="stage" class="stage" aria-label="Trước mặt (Stage)"></div>
-    </section>
+      <!-- ===== RESULT OVERLAY (Victory/Defeat) ===== -->
+      <div id="resultOverlay" role="dialog" aria-modal="true" aria-hidden="true">
+        <div class="resultBox">
+          <!-- Banner Victory/Defeat -->
+          <div id="endBanner" class="banner result" aria-hidden="true"></div>
 
-    <section class="zone">
-      <div id="hand" class="hand" aria-label="Tay bài (Hand)"></div>
-    </section>
+          <!-- Actions -->
+          <div class="resultActions">
+            <button
+              id="btnResultNew"
+              class="spriteBtn btn--new"
+              type="button"
+              title="Ván mới"
+              aria-label="Ván mới"
+            >
+              Ván mới
+            </button>
+          </div>
+        </div>
+      </div>
 
-    <footer class="zone controls" role="contentinfo">
-      <button id="btnPlay">Đánh</button>
-      <button id="btnEnd">Kết thúc lượt</button>
-      <button id="btnNew" class="warn">Ván mới</button>
-    </footer>
-  </main>
+      <!-- FX Layer (overlay flights; bám trong #viewport để không tràn ra letterbox) -->
+      <div id="fxLayer"></div>
+    </div>
+  </div>
 
-  <!-- Scripts (defer để không chặn render) -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- Scripts -->
+  <script src="peerjs.min.js" defer></script>
   <script src="net.js" defer></script>
   <script src="marks.js" defer></script>
+  <script src="condense.js" defer></script>
+  <script src="sound.js" defer></script>
   <script src="animations.js" defer></script>
-  <script src="app.js" defer></script>
+  <script src="handArc.js" defer></script>
+  <script src="preload.js" defer></script>
+  <script src="guess.js" defer></script>
+  <script src="base.js" defer></script>
+  <script src="overlays.js" defer></script>
+  <script src="actions.js" defer></script>
+  <script src="appNetUi.js" defer></script>
 </body>
 </html>
