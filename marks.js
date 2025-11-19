@@ -1,209 +1,227 @@
-// marks.js — Secret Mark Board (local-only)
-// - 4 cột ứng với suits theo thứ tự: xanh(g) → đỏ(r) → vàng(y) → đen(k)
-// - Badge chỉ hiển thị SỐ (không g/r/y/k)
-// - Đánh dấu vĩnh viễn: xanh (myHand), trắng (C.open), tím (đối phương PLAY)
-// - Đánh dấu tạm thời (local, click cycle): none → 'x' tím → '?' trắng → none
-// - Khi đối phương PLAY một id, nếu đang có dấu tạm ở ô đó → xoá dấu tạm
+// ===== marks.js — Secret Mark Board (tạm thời bền, chỉ mất khi overwrite hoặc reset) =====
+'use strict';
 
 (function(){
-  const $ = s => document.querySelector(s);
+  const SUITS = [
+    { key:'g', label:'G', cls:'g', nums:[1,2,3,4] },      // xanh
+    { key:'r', label:'R', cls:'r', nums:[1,2,3,4] },      // đỏ
+    { key:'y', label:'Y', cls:'y', nums:[1,2,3,4] },      // vàng
+    { key:'k', label:'K', cls:'k', nums:[5,6,7,null] },   // đen (5–7, ô cuối trống)
+  ];
 
-  // Suits & values
-  const SUITS = ['g','r','y','k'];           // xanh → đỏ → vàng → đen
-  const VALUES = {
-    g: [1,2,3,4],                            // hiển thị số 1..4
-    r: [1,2,3,4],
-    y: [1,2,3,4],
-    k: [5,6,7,null],                         // cột đen có 3 lá (5,6,7) + 1 ô trống
-  };
+  // ===== State (local-only) =====
+  // perm: dấu vĩnh viễn
+  const perm = { green:new Set(), purple:new Set(), white:new Set() };
+  // temp: id -> 'purple' | 'guess' | 'slash' (giữ tạm thời bền, không auto-clear)
+  const temp = new Map();
 
-  // State (local-only)
-  const state = {
-    permGreen: new Set(),   // myHand ids (x xanh) — vĩnh viễn đến hết ván
-    permWhite: new Set(),   // C.open id (x trắng) — vĩnh viễn đến hết ván
-    permPurple: new Set(),  // opponent PLAY ids (x tím) — vĩnh viễn đến hết ván
-    temp: Object.create(null), // { id: 'opp' | 'guess' } — tạm thời (local)
-    mounted: false,
-  };
+  const idOf   = (suit, num) => (suit && num ? `${suit}${num}` : null);
+  const cellId = (suit, num) => `mb-${suit}${num ?? 'empty'}`;
+  const el     = (id) => document.getElementById(id);
 
-  // ===== Utilities =====
-  const idOf = (suit, val) => (val == null ? null : `${suit}${val}`);
-  const hasAnyPerm = (id) =>
-    state.permGreen.has(id) || state.permWhite.has(id) || state.permPurple.has(id);
-
-  // ===== Mount / Host container right under header =====
-  function ensureHostBox(){
-    let host = document.getElementById('markBoardHost');
-    const header = $('.appHeader');
-    if (!host){
-      host = document.createElement('div');
-      host.id = 'markBoardHost';
-    }
-    if (header && header.parentNode) {
-      const parent = header.parentNode;
-      if (host.parentNode !== parent) {
-        if (header.nextSibling) parent.insertBefore(host, header.nextSibling);
-        else parent.appendChild(host);
-      }
-    }
-    return host;
-  }
-
-  // ===== Render one cell
-  function renderCell(suit, val){
-    const cell = document.createElement('div');
-    cell.className = 'mb-cell';
-
-    // Badge: chỉ số — không hiển thị chữ suit
-    const badge = document.createElement('div');
-    badge.className = 'mb-badge';
-    if (val == null){
-      badge.classList.add('empty');
-      badge.textContent = '';
-    } else {
-      badge.classList.add(suit);      // dùng màu theo CSS (.mb-badge.g/.r/.y/.k)
-      badge.textContent = String(val);
-    }
-    cell.appendChild(badge);
-
-    // Marks: vùng chứa các dấu
-    const marks = document.createElement('div');
-    marks.className = 'mb-marks';
-    cell.appendChild(marks);
-
-    // Nếu là ô hợp lệ có id
-    const id = idOf(suit, val);
-    if (id){
-      cell.dataset.id = id;
-
-      // Click cycle (tạm thời): none → 'opp'(x tím) → 'guess'('?') → none
-      cell.addEventListener('click', ()=>{
-        // Không cho click nếu đã có dấu vĩnh viễn
-        if (hasAnyPerm(id)) return;
-
-        const cur = state.temp[id] || null;
-        if (cur === null) {
-          state.temp[id] = 'opp';     // x tím
-        } else if (cur === 'opp') {
-          state.temp[id] = 'guess';   // ? trắng
-        } else {
-          delete state.temp[id];      // none
-        }
-        // Re-render marks in this cell only
-        paintMarksForCell(cell, id);
-      });
-
-      // Lần đầu vẽ marks cho cell này
-      paintMarksForCell(cell, id);
-    }
-
-    return cell;
-  }
-
-  // ===== Paint marks for a single cell by id into provided cell element
-  function paintMarksForCell(cell, id){
-    const marks = cell.querySelector('.mb-marks');
-    if (!marks) return;
-    marks.innerHTML = '';
-
-    // Ưu tiên hiển thị dấu VĨNH VIỄN trước, không chồng tạm lên
-    if (state.permGreen.has(id)) {
-      const m = document.createElement('span');
-      m.className = 'mark green';
-      m.textContent = 'x';
-      marks.appendChild(m);
-      return;
-    }
-    if (state.permWhite.has(id)) {
-      const m = document.createElement('span');
-      m.className = 'mark white';
-      m.textContent = '☠️';
-      marks.appendChild(m);
-      return;
-    }
-    if (state.permPurple.has(id)) {
-      const m = document.createElement('span');
-      m.className = 'mark purple';
-      m.textContent = 'x';
-      marks.appendChild(m);
-      return;
-    }
-
-    // Không có vĩnh viễn → có thể hiển thị tạm thời (nếu có)
-    const t = state.temp[id];
-    if (t === 'opp') {
-      const m = document.createElement('span');
-      m.className = 'mark purple';
-      m.textContent = 'x';
-      marks.appendChild(m);
-    } else if (t === 'guess') {
-      const m = document.createElement('span');
-      m.className = 'mark white';
-      m.textContent = '?';
-      marks.appendChild(m);
-    }
-  }
-
-  // ===== Build full board (4x4) with column-per-suit
-  function buildBoard(){
-    const board = document.createElement('div');
-    board.className = 'markBoard';
-
-    // LƯU Ý: để grid 4 cột đúng theo suit, ta đẩy theo thứ tự hàng → cột:
-    // for each row (4 hàng), for each suit (4 cột)
-    for (let row = 0; row < 4; row++){
-      for (const suit of SUITS){
-        const vals = VALUES[suit];
-        const val = vals[row] ?? null;    // row-th value of this suit
-        const cell = renderCell(suit, val);
-        board.appendChild(cell);
-      }
-    }
-    return board;
-  }
-
-  function renderAll(){
-    const host = ensureHostBox();
+  // ===== Render grid (4 cột suit, số tăng dần từ trên xuống) =====
+  function renderInitialGrid(){
+    const host = el('markBoard');
     if (!host) return;
     host.innerHTML = '';
-    host.appendChild(buildBoard());
+
+    // Row-major: g r y k
+    // Row1: g1 r1 y1 k5 | Row2: g2 r2 y2 k6 | Row3: g3 r3 y3 k7 | Row4: g4 r4 y4 k(empty)
+    for (let row = 0; row < 4; row++){
+      const rowMap = [
+        ['g', row+1],
+        ['r', row+1],
+        ['y', row+1],
+        ['k', [5,6,7,null][row]]
+      ];
+      rowMap.forEach(([suit, num])=>{
+        const cell = document.createElement('div');
+        cell.className = 'mb-cell';
+        cell.id = cellId(suit, num);
+
+        const badge = document.createElement('div');
+        badge.className = `mb-badge ${suit} ${num ? '' : 'empty'}`;
+        badge.textContent = num ? String(num) : '';
+        cell.appendChild(badge);
+
+        const marks = document.createElement('div');
+        marks.className = 'mb-marks';
+        cell.appendChild(marks);
+
+        if (num){
+          // Click cycle:
+          // none → temp 'purple' (x tím)
+          //      → temp 'guess'  (? trắng)
+          //      → temp 'slash'  (/ đỏ)
+          //      → none
+          cell.addEventListener('click', ()=>{
+            const id = idOf(suit, num);
+            // Không cho ghi đè khi đã có dấu vĩnh viễn xanh / trắng
+            if (perm.green.has(id) || perm.white.has(id)) return;
+
+            // 🔊 SFX: click để mark / đổi mark
+            if (window.Sound) Sound.play('mark');
+
+            const cur = temp.get(id);
+            if (!cur && !perm.purple.has(id)){
+              temp.set(id, 'purple');
+            } else if (cur === 'purple'){
+              temp.set(id, 'guess');
+            } else if (cur === 'guess'){
+              temp.set(id, 'slash');
+            } else if (cur === 'slash'){
+              temp.delete(id);
+            }
+            applyAllMarks();
+          });
+        } else {
+          cell.style.cursor = 'default';
+        }
+
+        host.appendChild(cell);
+      });
+    }
+    applyAllMarks();
+  }
+
+  // ===== Helpers =====
+  function drawMark(id, html){
+    const suit = id[0];
+    const num  = parseInt(id.slice(1), 10);
+    const cell = el(cellId(suit, num));
+    if (!cell) return;
+    const box = cell.querySelector('.mb-marks');
+    if (!box) return;
+    box.innerHTML = html;
+  }
+
+  function clearVisuals(){
+    document.querySelectorAll('.mb-marks').forEach(m => m.innerHTML = '');
+  }
+
+  // ===== Re-render marks theo ưu tiên =====
+  // Ưu tiên: green > purple (perm) > white (perm) > temp ('purple' | 'guess' | 'slash')
+  function applyAllMarks(){
+    clearVisuals();
+
+    // green
+    perm.green.forEach(id => drawMark(id, `<span class="mark green">x</span>`));
+
+    // purple (perm) — không ghi đè green
+    perm.purple.forEach(id => {
+      if (!perm.green.has(id)){
+        drawMark(id, `<span class="mark purple">x</span>`);
+      }
+    });
+
+    // white (perm) — icon death (render span trống, sprite do CSS lo)
+    perm.white.forEach(id => {
+      if (!perm.green.has(id) && !perm.purple.has(id)){
+        drawMark(id, `<span class="mark white"></span>`);
+      }
+    });
+
+    // temp — chỉ vẽ nếu chưa bị ghi đè bởi perm.* ở trên
+    temp.forEach((state, id) => {
+      if (perm.green.has(id) || perm.purple.has(id) || perm.white.has(id)){
+        // đã bị overwrite -> xoá temp cho id đó
+        temp.delete(id);
+        return;
+      }
+      if (state === 'purple'){
+        drawMark(id, `<span class="mark purple temp">x</span>`);
+      } else if (state === 'guess'){
+        // mark.guess = dấu ? trắng tạm
+        drawMark(id, `<span class="mark guess temp">?</span>`);
+      } else if (state === 'slash'){
+        // mark.slash = dấu "/" màu đỏ (màu do CSS .mark.slash lo)
+        drawMark(id, `<span class="mark slash temp">!</span>`);
+      }
+    });
+  }
+
+  // ===== Clear hiệu ứng "played" (dùng khi END TURN) =====
+  function clearPlayed(){
+    document.querySelectorAll('.mb-cell.played').forEach(cell => {
+      cell.classList.remove('played');
+    });
+  }
+
+  function clearAll(){
+    perm.green.clear();
+    perm.purple.clear();
+    perm.white.clear();
+    temp.clear();                 // XÓA toàn bộ tạm thời khi reset ván
+    clearVisuals();
   }
 
   // ===== Public API =====
-  const Marks = {
-    init(){
-      renderAll();
-      state.mounted = true;
-    },
+  window.Marks = {
+    init(){ renderInitialGrid(); },
     reset(){
-      state.permGreen.clear();
-      state.permWhite.clear();
-      state.permPurple.clear();
-      state.temp = Object.create(null);
-      renderAll();
+      clearAll();
+      renderInitialGrid();
     },
-    // Áp dụng khi chia bài đầu ván (local): myHandIds (x xanh), openId (x trắng)
+
     applyDeal({ myHandIds = [], openId = null } = {}){
-      for (const id of myHandIds) state.permGreen.add(id);
-      if (openId) state.permWhite.add(openId);
-      renderAll();
+      // Đánh dấu vĩnh viễn: xanh = bài của mình, trắng = lá mở
+      myHandIds.forEach(id => perm.green.add(id));
+      if (openId) perm.white.add(openId);
+
+      // Render lại toàn bộ mark (perm + temp)
+      applyAllMarks(); // KHÔNG đụng temp -> temp vẫn giữ
+
+      // Cho mark trắng (lá open) lắc ~3s khi bắt đầu ván
+      const board = document.getElementById('markBoard');
+      if (!board) return;
+
+      const whites = board.querySelectorAll('.mark.white');
+      whites.forEach(markEl => {
+        markEl.classList.add('just-appeared');
+        setTimeout(() => {
+          markEl.classList.remove('just-appeared');
+        }, 2000);
+      });
     },
-    // Khi đối phương PLAY (Hand -> Stage của họ): đánh dấu x tím (vĩnh viễn),
-    // nếu ô đang có dấu tạm thời → xoá dấu tạm.
+
     markOpponentPlay(id){
       if (!id) return;
-      if (!state.permGreen.has(id) && !state.permWhite.has(id)) {
-        state.permPurple.add(id);
-      }
-      if (state.temp[id]) delete state.temp[id];
 
-      // Repaint chỉ cell này nếu đang mounted
-      if (state.mounted){
-        const cell = document.querySelector(`.mb-cell[data-id="${id}"]`);
-        if (cell) paintMarksForCell(cell, id);
+      // Chỉ coi là "mark đối thủ" nếu ô đó KHÔNG phải bài của mình (green)
+      // và KHÔNG phải lá open (white).
+      let isOppMark = false;
+      if (!perm.green.has(id) && !perm.white.has(id)){
+        perm.purple.add(id);
+        isOppMark = true;
       }
-    }
+
+      // Xoá mọi temp trên ô đó rồi vẽ lại
+      temp.delete(id);
+      applyAllMarks();
+
+      // Nếu KHÔNG phải opp mark (tức là id thuộc perm.green hoặc perm.white)
+      // thì KHÔNG wiggle.
+      if (!isOppMark) return;
+
+      // 🔊 SFX: mark đối thủ (lúc x tím vĩnh viễn xuất hiện)
+      if (window.Sound) Sound.play('mark');
+
+      // Hiệu ứng wiggle ~3s cho ô của đối thủ
+      const suit = id[0];
+      const num  = parseInt(id.slice(1), 10);
+      const cell = el(cellId(suit, num));
+      if (cell){
+        cell.classList.remove('played');
+        void cell.offsetWidth;     // restart animation
+        cell.classList.add('played');
+
+        setTimeout(() => {
+          cell.classList.remove('played');
+        }, 3000);
+      }
+    },
+
+    // Cho chỗ khác gọi để tắt wiggle ngay (đã dùng trong hostEnd / guestEndLocal)
+    clearPlayed,
   };
-
-  window.Marks = Marks;
 })();
