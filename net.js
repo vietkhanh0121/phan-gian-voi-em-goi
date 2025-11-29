@@ -1,13 +1,10 @@
-// net.js — Peer + Lobby (Render server). API: Net.onReadyInGame, Net.onMessage, Net.send, Net.broadcast
+// net.js — Peer + Lobby (PeerJS Cloud). API: Net.onReadyInGame, Net.onMessage, Net.send, Net.broadcast
 (function () {
   const $ = s => document.querySelector(s);
 
-  // ===== Config (Render) =====
-  const PEER_HOST   = 'cardfeel-sio-relay.onrender.com';
-  const PEER_PORT   = 443;
-  const PEER_PATH   = '/pg';
-  const PEER_SECURE = true;
-  const ICE         = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+  // ===== Config (PeerJS Cloud default) =====
+  // Không chỉ định host/port/path → dùng cloud server mặc định của PeerJS
+  const ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
   const hostIdOf = code => `pg-room-${code}-host`;
 
@@ -75,14 +72,11 @@
   let _onReady     = () => {};
   let _readyCalled = false;
 
-  // ===== Peer helpers =====
+  // ===== Peer helpers (PeerJS Cloud) =====
   const makePeer = (id) => {
+    // Dùng PeerJS cloud server mặc định: không set host/port/path/secure
     const p = new Peer(id || undefined, {
-      host:   PEER_HOST,
-      port:   PEER_PORT,
-      path:   PEER_PATH,
-      secure: PEER_SECURE,
-      debug:  2,
+      debug: 2,
       config: ICE
     });
 
@@ -110,7 +104,7 @@
     _onReady({ role: _role, isHost: _isHost, roomCode: _roomCode });
   }
 
-  // Connect với retry khi host chưa open / Render vừa wake
+  // Connect với retry khi host chưa open / peer cloud vừa wake
   function connectWithRetry(p, hid, { tries = 10, delay = 800 } = {}){
     console.log('[Net] connect →', hid, `(tries=${tries})`);
     let localConn = p.connect(hid, { reliable: true });
@@ -271,7 +265,7 @@
     Net.startGuest(code);
   });
 
-  setStatus('Sẵn sàng. Hãy chạy server Peer trên Render và nhấn Tạo phòng / Vào phòng.');
+  setStatus('Sẵn sàng. Nhấn Tạo phòng / Vào phòng.');
 
   window.Net = Net;
 })();
